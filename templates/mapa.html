@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa - Ubaté</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🛣️ Vías Rurales Ubaté</h1>
+        <nav>
+            <a href="/">Reportar</a>
+            <a href="/reportes">Ver Reportes</a>
+            <a href="/mapa">Ver Mapa</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>🗺️ Mapa de Daños</h2>
+
+        <div class="leyenda">
+            <span class="punto rojo">🔴 Hueco</span>
+            <span class="punto naranja">🟠 Derrumbe</span>
+            <span class="punto azul">🔵 Inundación</span>
+            <span class="punto gris">⚫ Otro</span>
+        </div>
+
+        <div class="mapa-container">
+            <iframe src="{{ url_for('static', filename='mapa_generado.html') }}"></iframe>
+        </div>
+
+        <a href="/" class="btn-volver">+ Nuevo Reporte</a>
+    </main>
+</body>
+</html>

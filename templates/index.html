@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportar Vía - Ubaté</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #mapa-preview {
+            height: 280px;
+            border-radius: 10px;
+            margin-top: 8px;
+            border: 2px solid #ddd;
+        }
+        .ubicacion-info {
+            font-size: 0.85rem;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 6px;
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .ubicacion-ok {
+            background: #e8f5e9 !important;
+            color: #2e7d32 !important;
+        }
+        .mapa-hint {
+            font-size: 0.78rem;
+            color: #888;
+            margin-top: 4px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🛣️ Vías Rurales Ubaté</h1>
+        <nav>
+            <a href="/">Reportar</a>
+            <a href="/reportes">Ver Reportes</a>
+            <a href="/mapa">Ver Mapa</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Registrar Daño en Vía</h2>
+
+        {% if mensaje %}
+            <div class="mensaje">{{ mensaje }}</div>
+        {% endif %}
+
+        <form method="POST" action="/">
+
+            <label>Nombre de la vía o vereda</label>
+            <input type="text" name="via"
+            placeholder="Ej: Vereda El Hato" required>
+
+            <label>Estado de la vía</label>
+            <select name="estado" required>
+                <option value="">-- Seleccione --</option>
+                <option value="Bueno">Bueno</option>
+                <option value="Regular">Regular</option>
+                <option value="Malo">Malo</option>
+            </select>
+
+            <label>Tipo de daño</label>
+            <select name="dano" required>
+                <option value="">-- Seleccione --</option>
+                <option value="Hueco">Hueco</option>
+                <option value="Derrumbe">Derrumbe</option>
+                <option value="Inundación">Inundación</option>
+                <option value="Otro">Otro</option>
+            </select>
+
+            <label>Descripción del problema</label>
+            <textarea name="descripcion" rows="3"
+            placeholder="Describe el daño..."></textarea>
+
+            <label>📍 Ubicación del daño</label>
+
+            <!-- PASO 1: Lista de veredas -->
+            <select id="vereda-select" onchange="seleccionarVereda()">
+                <option value="">-- Paso 1: Selecciona tu vereda --</option>
+                <option value="5.3200,-73.8100">Vereda El Hato</option>
+                <option value="5.3050,-73.8300">Vereda Soaga</option>
+                <option value="5.3300,-73.7900">Vereda Guachetá</option>
+                <option value="5.2900,-73.8400">Vereda Espigas</option>
+                <option value="5.3400,-73.8200">Vereda Pasoancho</option>
+                <option value="5.3150,-73.8500">Vereda Pueblo Viejo</option>
+                <option value="5.2800,-73.8100">Vereda Merchán</option>
+                <option value="5.3500,-73.7800">Vereda Rinconada</option>
+                <option value="5.3100,-73.7700">Vereda Apartadero</option>
+                <option value="5.2700,-73.8200">Vereda Peñas</option>
+            </select>
+
+            <!-- PASO 2: Mapa para afinar -->
+            <div id="mapa-preview"></div>
+            <p class="mapa-hint" id="mapa-hint" style="display:none">
+                👆 Toca el mapa para marcar el punto exacto del daño
+            </p>
+
+            <!-- Estado de la ubicación -->
+            <p class="ubicacion-info" id="ubicacion-texto">
+                ⚠️ Selecciona una vereda para ver el mapa
+            </p>
+
+            <!-- Campos ocultos -->
+            <input type="hidden" name="latitud" id="latitud" required>
+            <input type="hidden" name="longitud" id="longitud" required>
+
+            <button type="submit">💾 Guardar Reporte</button>
+        </form>
+    </main>
+
+    <script>
+        var mapa = null;
+        var marcador = null;
+
+        function seleccionarVereda() {
+            var select = document.getElementById('vereda-select');
+            var valor = select.value;
+            if (!valor) return;
+
+            var coords = valor.split(',');
+            var lat = parseFloat(coords[0]);
+            var lon = parseFloat(coords[1]);
+            var nombreVereda = select.options[select.selectedIndex].text;
+
+            // Guarda coordenadas iniciales
+            document.getElementById('latitud').value = lat;
+            document.getElementById('longitud').value = lon;
+
+            // Muestra hint del mapa
+            document.getElementById('mapa-hint').style.display = 'block';
+
+            // Actualiza mensaje
+            actualizarMensaje(nombreVereda, false);
+
+            if (mapa === null) {
+                // Crea el mapa por primera vez
+                mapa = L.map('mapa-preview').setView([lat, lon], 14);
+                L.tileLayer(
+                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    { attribution: '© OpenStreetMap' }
+                ).addTo(mapa);
+
+                // Marcador inicial
+                marcador = L.marker([lat, lon])
+                    .addTo(mapa)
+                    .bindPopup('📍 ' + nombreVereda)
+                    .openPopup();
+
+                // Evento: tocar el mapa para afinar ubicación
+                mapa.on('click', function(e) {
+                    var newLat = e.latlng.lat.toFixed(6);
+                    var newLon = e.latlng.lng.toFixed(6);
+
+                    marcador.setLatLng(e.latlng)
+                        .bindPopup('📍 Punto exacto del daño')
+                        .openPopup();
+
+                    document.getElementById('latitud').value = newLat;
+                    document.getElementById('longitud').value = newLon;
+
+                    actualizarMensaje('Punto exacto marcado en el mapa', true);
+                });
+
+            } else {
+                // Mueve el mapa y marcador a la vereda seleccionada
+                mapa.setView([lat, lon], 14);
+                marcador.setLatLng([lat, lon])
+                    .bindPopup('📍 ' + nombreVereda)
+                    .openPopup();
+            }
+
+            setTimeout(function() { mapa.invalidateSize(); }, 100);
+        }
+
+        function actualizarMensaje(texto, exacto) {
+            var el = document.getElementById('ubicacion-texto');
+            el.className = 'ubicacion-info ubicacion-ok';
+            if (exacto) {
+                el.innerHTML = '✅ ' + texto + ' ✔️';
+            } else {
+                el.innerHTML = '📍 ' + texto + ' — puedes afinar tocando el mapa';
+            }
+        }
+    </script>
+</body>
+</html>
+```
+

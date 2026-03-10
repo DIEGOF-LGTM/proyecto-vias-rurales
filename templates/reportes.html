@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - Ubaté</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🛣️ Vías Rurales Ubaté</h1>
+        <nav>
+            <a href="/">Reportar</a>
+            <a href="/reportes">Ver Reportes</a>
+            <a href="/mapa">Ver Mapa</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Reportes Registrados</h2>
+
+        {% if reportes %}
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Vía</th>
+                            <th>Estado</th>
+                            <th>Daño</th>
+                            <th>Fecha</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reportes %}
+                        <tr>
+                            <td>{{ r[0] }}</td>
+                            <td>{{ r[1] }}</td>
+                            <td>
+                                <span class="badge estado-{{ r[2]|lower }}">{{ r[2] }}</span>
+                            </td>
+                            <td>
+                                <span class="badge dano-{{ r[3]|lower|replace('ó','o') }}">{{ r[3] }}</span>
+                            </td>
+                            <td>{{ r[7] }}</td>
+                            <td>
+                                <a href="/eliminar/{{ r[0] }}" class="btn-eliminar" onclick="return confirm('¿Eliminar este reporte?')">🗑️</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="vacio">No hay reportes registrados aún.</p>
+        {% endif %}
+
+        <a href="/" class="btn-volver">+ Nuevo Reporte</a>
+    </main>
+</body>
+</html>
