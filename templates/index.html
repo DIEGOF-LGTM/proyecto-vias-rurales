@@ -3,121 +3,323 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Vía - Ubaté</title>
+    <title>Mi Vía Ubaté - Registrar Reporte</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f6f8; }
-        .container { max-width: 650px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .campo { margin-bottom: 15px; }
-        label { font-weight: bold; display: block; margin-bottom: 5px; }
-        select, input, textarea, button { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background: #2e7d32; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        button:hover { background: #1b5e20; }
-        .btn-gps { background: #0277bd; }
-        .btn-gps:hover { background: #01579b; }
-        #mapa-selector { height: 250px; border-radius: 8px; margin-top: 8px; }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --primary: #38bdf8;
+            --primary-hover: #0284c7;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        /* Navbar Ultra Moderna */
+        header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        nav {
+            display: flex;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-btn.primary {
+            background: linear-gradient(135deg, #0284c7, #4f46e5);
+            color: white;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+        }
+
+        .nav-btn.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4);
+        }
+
+        /* Layout Principal */
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            margin-bottom: 24px;
+        }
+
+        .card-header h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .card-header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        /* Formulario Moderno */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Custom File Input */
+        input[type="file"]::file-selector-button {
+            background: var(--primary);
+            color: #0f172a;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            margin-right: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        input[type="file"]::file-selector-button:hover {
+            background: #7dd3fc;
+        }
+
+        /* Mapa y GPS */
+        .btn-gps {
+            width: 100%;
+            padding: 12px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--primary);
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-gps:hover {
+            background: rgba(56, 189, 248, 0.2);
+        }
+
+        #mapa {
+            height: 300px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(16, 185, 129, 0.3);
+        }
     </style>
 </head>
 <body>
+
+    <header>
+        <div class="logo">🛤️ Mi Vía <span>Ubaté</span></div>
+        <nav>
+            <a href="/" class="nav-btn">＋ Nuevo Reporte</a>
+            <a href="/reportes" class="nav-btn primary">📍 Ver Todos los Reportes</a>
+        </nav>
+    </header>
+
     <div class="container">
-        <h2>🛤️ Registrar Daño en Vía Rural - Ubaté</h2>
-        <form action="/reportar" method="POST" enctype="multipart/form-data">
-            
-            <div class="campo">
-                <label for="via">Vereda (Municipio de Ubaté):</label>
-                <select name="via" id="via" required>
-                    <option value="">-- Seleccione una vereda --</option>
-                    <option value="Vereda Apartadero">Vereda Apartadero</option>
-                    <option value="Vereda Centro del Llano">Vereda Centro del Llano</option>
-                    <option value="Vereda Guatancuy">Vereda Guatancuy</option>
-                    <option value="Vereda La Patera">Vereda La Patera</option>
-                    <option value="Vereda Palo Gordo">Vereda Palo Gordo</option>
-                    <option value="Vereda Soagá">Vereda Soagá</option>
-                    <option value="Vereda Sucunchoque">Vereda Sucunchoque</option>
-                    <option value="Vereda Tausavita">Vereda Tausavita</option>
-                    <option value="Vereda Volcán">Vereda Volcán</option>
-                </select>
+        <div class="card">
+            <div class="card-header">
+                <h2>Registrar Daño Vial</h2>
+                <p>Reporta el estado de la vía rural para el análisis con Inteligencia Artificial</p>
             </div>
 
-            <div class="campo">
-                <label for="estado">Estado General de la Vía:</label>
-                <select name="estado" id="estado" required>
-                    <option value="Bueno">Bueno (Transitable)</option>
-                    <option value="Regular" selected>Regular (Paso con precaución)</option>
-                    <option value="Malo">Malo (Dificultad alta)</option>
-                    <option value="Critico">Crítico (Paso restringido)</option>
-                </select>
-            </div>
+            <form action="/guardar_reporte" method="POST" enctype="multipart/form-data">
+                
+                <div class="form-group">
+                    <label>Vereda (Municipio de Ubaté)</label>
+                    <select name="vereda" required>
+                        <option value="">-- Seleccione una vereda --</option>
+                        <option value="Guaguate">Guaguate</option>
+                        <option value="Soagafara">Soagafara</option>
+                        <option value="San José">San José</option>
+                        <option value="Villarreal">Villarreal</option>
+                        <option value="Santa Ana">Santa Ana</option>
+                        <option value="Paluato">Paluato</option>
+                        <option value="Sucunchoque">Sucunchoque</option>
+                        <option value="Tasaquira">Tasaquira</option>
+                    </select>
+                </div>
 
-            <div class="campo">
-                <label for="dano">Tipo de Daño:</label>
-                <select name="dano" id="dano" required>
-                    <option value="Hueco / Bache profundo">Hueco / Bache profundo</option>
-                    <option value="Grietas / Fisuras">Grietas / Fisuras</option>
-                    <option value="Pérdida de banca">Pérdida de banca</option>
-                    <option value="Derrumbe / Deslizamiento">Derrumbe / Deslizamiento</option>
-                    <option value="Piedra / Material suelto">Piedra / Material suelto</option>
-                    <option value="Cuneta / Alcantarilla tapada">Cuneta / Alcantarilla tapada</option>
-                    <option value="Vía anegada / Inundación">Vía anegada / Inundación</option>
-                    <option value="Puente / Pontón dañado">Puente / Pontón dañado</option>
-                </select>
-            </div>
+                <div class="form-group">
+                    <label>Estado General de la Vía</label>
+                    <select name="estado" required>
+                        <option value="Bueno">Bueno (Tránsito Normal)</option>
+                        <option value="Regular" selected>Regular (Paso con precaución)</option>
+                        <option value="Malo">Malo (Daño considerable)</option>
+                        <option value="Critico">Crítico (Intransitable)</option>
+                    </select>
+                </div>
 
-            <div class="campo">
-                <label for="foto">Fotografía del Daño (para Análisis IA):</label>
-                <input type="file" name="foto" id="foto" accept="image/*">
-            </div>
+                <div class="form-group">
+                    <label>Tipo de Daño</label>
+                    <select name="dano" required>
+                        <option value="Hueco / Bache profundo">Hueco / Bache profundo</option>
+                        <option value="Derrumbe / Deslizamiento">Derrumbe / Deslizamiento</option>
+                        <option value="Pérdida de bancada">Pérdida de bancada</option>
+                        <option value="Falta de alcantarillado">Falta de alcantarillado</option>
+                        <option value="Inundación / Encharcamiento">Inundación / Encharcamiento</option>
+                    </select>
+                </div>
 
-            <div class="campo">
-                <label>Ubicación del Daño:</label>
-                <button type="button" onclick="obtenerGPS()" class="btn-gps">📍 Usar mi ubicación actual (GPS)</button>
-                <p style="font-size: 0.85em; color: #555; margin: 5px 0;">O haz clic en el mapa para marcar el punto exacto:</p>
-                <div id="mapa-selector"></div>
-            </div>
+                <div class="form-group">
+                    <label>Fotografía del Daño (para Análisis IA)</label>
+                    <input type="file" name="foto" accept="image/*" required>
+                </div>
 
-            <input type="hidden" name="latitud" id="latitud" value="5.3081" required>
-            <input type="hidden" name="longitud" id="longitud" value="-73.8143" required>
+                <div class="form-group">
+                    <label>Ubicación del Daño</label>
+                    <button type="button" class="btn-gps" onclick="obtenerGPS()">📍 Usar mi ubicación actual (GPS)</button>
+                    <div id="mapa"></div>
+                    
+                    <input type="hidden" name="lat" id="lat" value="5.3081">
+                    <input type="hidden" name="lng" id="lng" value="-73.8143">
+                </div>
 
-            <div class="campo">
-                <label for="descripcion">Descripción detallada:</label>
-                <textarea name="descripcion" id="descripcion" rows="3" placeholder="Puntos de referencia o detalles del problema..."></textarea>
-            </div>
-
-            <button type="submit">Guardar Reporte</button>
-        </form>
+                <button type="submit" class="btn-submit">🚀 Enviar Reporte Vial</button>
+            </form>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Inicializar mapa centrado en Ubaté
-        const map = L.map('mapa-selector').setView([5.3081, -73.8143], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const defaultLat = 5.3081;
+        const defaultLng = -73.8143;
+
+        const map = L.map('mapa').setView([defaultLat, defaultLng], 13);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        let marker = L.marker([5.3081, -73.8143], {draggable: true}).addTo(map);
+        let marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
 
         function actualizarCoordenadas(lat, lng) {
-            document.getElementById('latitud').value = lat;
-            document.getElementById('longitud').value = lng;
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
         }
 
-        map.on('click', function(e) {
+        marker.on('dragend', function (e) {
+            const coords = marker.getLatLng();
+            actualizarCoordenadas(coords.lat, coords.lng);
+        });
+
+        map.on('click', function (e) {
             marker.setLatLng(e.latlng);
             actualizarCoordenadas(e.latlng.lat, e.latlng.lng);
         });
 
-        marker.on('dragend', function(e) {
-            const position = marker.getLatLng();
-            actualizarCoordenadas(position.lat, position.lng);
-        });
-
         function obtenerGPS() {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition((pos) => {
+                navigator.geolocation.getCurrentPosition(function (pos) {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
-                    map.setView([lat, lng], 15);
+                    map.setView([lat, lng], 16);
                     marker.setLatLng([lat, lng]);
                     actualizarCoordenadas(lat, lng);
                 });
