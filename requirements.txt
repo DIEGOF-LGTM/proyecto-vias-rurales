@@ -1,5 +1,4 @@
 Flask
-folium
+opencv-python-headless
+numpy
 gunicorn
-mysql-connector-python
-psycopg2-binary
