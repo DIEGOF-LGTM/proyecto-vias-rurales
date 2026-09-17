@@ -3,60 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportes - Ubaté</title>
+    <title>Mi Vía - Reportes Registrados</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>🛣️ Vías Rurales Ubaté</h1>
+    <header class="navbar">
+        <h1>🛤️ Mi Vía - Ubaté</h1>
         <nav>
-            <a href="/">Reportar</a>
-            <a href="/reportes">Ver Reportes</a>
-            <a href="/mapa">Ver Mapa</a>
+            <a href="/" class="btn-nav">Reportar</a>
+            <a href="/reportes" class="btn-nav active">Ver Reportes</a>
         </nav>
     </header>
 
-    <main>
-        <h2>Reportes Registrados</h2>
-
-        {% if reportes %}
-            <div class="tabla-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Vía</th>
-                            <th>Estado</th>
-                            <th>Daño</th>
-                            <th>Fecha</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for r in reportes %}
-                        <tr>
-                            <td>{{ r[0] }}</td>
-                            <td>{{ r[1] }}</td>
-                            <td>
-                                <span class="badge estado-{{ r[2]|lower }}">{{ r[2] }}</span>
-                            </td>
-                            <td>
-                                <span class="badge dano-{{ r[3]|lower|replace('ó','o') }}">{{ r[3] }}</span>
-                            </td>
-                            <td>{{ r[7] }}</td>
-                            <td>
-                                <a href="/eliminar/{{ r[0] }}" class="btn-eliminar" onclick="return confirm('¿Eliminar este reporte?')">🗑️</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <main class="container">
+        <h2>Reportes de Daños Viales</h2>
+        <div class="lista-reportes">
+            {% for r in reportes %}
+            <div class="card-reporte">
+                <h3>{{ r[1] }}</h3>
+                <p><strong>Estado:</strong> {{ r[2] }} | <strong>Daño:</strong> {{ r[3] }}</p>
+                <p><strong>Descripción:</strong> {{ r[4] }}</p>
+                <p><strong>Ubicación GPS:</strong> Lat {{ r[5] }}, Lon {{ r[6] }}</p>
+                <p><strong>Fecha:</strong> {{ r[7] }}</p>
+                <p class="badge-ia"><strong>Análisis IA:</strong> {{ r[9] }}</p>
+                {% if r[8] and r[8] != 'sin_foto.jpg' %}
+                    <img src="{{ url_for('static', filename='uploads/' + r[8]) }}" width="200" alt="Foto del daño">
+                {% endif %}
             </div>
-        {% else %}
-            <p class="vacio">No hay reportes registrados aún.</p>
-        {% endif %}
-
-        <a href="/" class="btn-volver">+ Nuevo Reporte</a>
+            {% else %}
+                <p>No hay reportes registrados aún.</p>
+            {% endfor %}
+        </div>
     </main>
 </body>
 </html>
