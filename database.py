@@ -14,19 +14,21 @@ def init_db():
             descripcion TEXT,
             latitud REAL,
             longitud REAL,
-            fecha TEXT
+            fecha TEXT,
+            foto TEXT,
+            ia_evaluacion TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-def guardar_reporte(via, estado, dano, descripcion, latitud, longitud, fecha):
+def guardar_reporte(via, estado, dano, descripcion, latitud, longitud, fecha, foto="sin_foto.jpg", ia_evaluacion="No analizado"):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute('''
-        INSERT INTO reportes (via, estado, dano, descripcion, latitud, longitud, fecha)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (via, estado, dano, descripcion, latitud, longitud, fecha))
+        INSERT INTO reportes (via, estado, dano, descripcion, latitud, longitud, fecha, foto, ia_evaluacion)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (via, estado, dano, descripcion, latitud, longitud, fecha, foto, ia_evaluacion))
     conn.commit()
     conn.close()
 

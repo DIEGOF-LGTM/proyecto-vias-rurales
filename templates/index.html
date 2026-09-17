@@ -3,192 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportar Vía - Ubaté</title>
+    <title>Mi Vía - Reportar Daño</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        #mapa-preview {
-            height: 280px;
-            border-radius: 10px;
-            margin-top: 8px;
-            border: 2px solid #ddd;
-        }
-        .ubicacion-info {
-            font-size: 0.85rem;
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 6px;
-            background: #fff3e0;
-            color: #e65100;
-        }
-        .ubicacion-ok {
-            background: #e8f5e9 !important;
-            color: #2e7d32 !important;
-        }
-        .mapa-hint {
-            font-size: 0.78rem;
-            color: #888;
-            margin-top: 4px;
-            text-align: center;
-        }
-    </style>
 </head>
 <body>
-    <header>
-        <h1>🛣️ Vías Rurales Ubaté</h1>
+
+    <header class="navbar">
+        <h1>🛤️ Mi Vía - Ubaté</h1>
         <nav>
-            <a href="/">Reportar</a>
-            <a href="/reportes">Ver Reportes</a>
-            <a href="/mapa">Ver Mapa</a>
+            <a href="/" class="btn-nav active">Reportar</a>
+            <a href="/reportes" class="btn-nav">Ver Reportes</a>
+            <a href="/mapa" class="btn-nav">Ver Mapa</a>
         </nav>
     </header>
 
-    <main>
-        <h2>Registrar Daño en Vía</h2>
+    <main class="container">
+        <section class="card-form">
+            <h2>Registrar Daño en Vía Rural</h2>
+            <p class="subtitle">Selecciona la vereda oficial, captura la foto para la IA y detecta las coordenadas por GPS.</p>
 
-        {% if mensaje %}
-            <div class="mensaje">{{ mensaje }}</div>
-        {% endif %}
+            {% if error %}
+                <div class="alert alert-error">❌ {{ error }}</div>
+            {% endif %}
 
-        <form method="POST" action="/">
+            <form action="/reportar" method="POST" enctype="multipart/form-data" class="formulario-via">
+                
+                <!-- Selector de Veredas Oficiales de Ubaté -->
+                <div class="campo">
+                    <label for="via">Vereda (Municipio de Ubaté):</label>
+                    <select name="via" id="via" required>
+                        <option value="">-- Seleccione una vereda --</option>
+                        <option value="Vereda Apartadero">Vereda Apartadero</option>
+                        <option value="Vereda Centro del Llano">Vereda Centro del Llano</option>
+                        <option value="Vereda Guatancuy">Vereda Guatancuy</option>
+                        <option value="Vereda La Patera">Vereda La Patera</option>
+                        <option value="Vereda Palo Gordo">Vereda Palo Gordo</option>
+                        <option value="Vereda Soagá">Vereda Soagá</option>
+                        <option value="Vereda Sucunchoque">Vereda Sucunchoque</option>
+                        <option value="Vereda Tausavita">Vereda Tausavita</option>
+                        <option value="Vereda Volcán">Vereda Volcán</option>
+                    </select>
+                </div>
 
-            <label>Nombre de la vía o vereda</label>
-            <input type="text" name="via"
-            placeholder="Ej: Vereda El Hato" required>
+                <!-- Estado de la vía -->
+                <div class="campo">
+                    <label for="estado">Estado General de la Vía:</label>
+                    <select name="estado" id="estado" required>
+                        <option value="">-- Seleccione el estado --</option>
+                        <option value="Bueno">Bueno (Transitable)</option>
+                        <option value="Regular">Regular (Paso con precaución)</option>
+                        <option value="Malo">Malo (Dificultad alta)</option>
+                        <option value="Critico">Crítico (Paso restringido/cerrado)</option>
+                    </select>
+                </div>
 
-            <label>Estado de la vía</label>
-            <select name="estado" required>
-                <option value="">-- Seleccione --</option>
-                <option value="Bueno">Bueno</option>
-                <option value="Regular">Regular</option>
-                <option value="Malo">Malo</option>
-            </select>
+                <!-- Tipos de Daño -->
+                <div class="campo">
+                    <label for="dano">Tipo de Daño Específico:</label>
+                    <select name="dano" id="dano" required>
+                        <option value="">-- Seleccione el tipo de daño --</option>
+                        <option value="Hueco / Bache profundo">Hueco / Bache profundo</option>
+                        <option value="Grietas / Fisuras">Grietas / Fisuras</option>
+                        <option value="Pérdida de banca">Pérdida de banca</option>
+                        <option value="Derrumbe / Deslizamiento">Derrumbe / Deslizamiento</option>
+                        <option value="Piedra / Material suelto">Piedra / Material suelto</option>
+                        <option value="Cuneta / Alcantarilla tapada">Cuneta / Alcantarilla tapada</option>
+                        <option value="Vía anegada / Inundación">Vía anegada / Inundación</option>
+                        <option value="Puente / Pontón dañado">Puente / Pontón dañado</option>
+                    </select>
+                </div>
 
-            <label>Tipo de daño</label>
-            <select name="dano" required>
-                <option value="">-- Seleccione --</option>
-                <option value="Hueco">Hueco</option>
-                <option value="Derrumbe">Derrumbe</option>
-                <option value="Inundación">Inundación</option>
-                <option value="Otro">Otro</option>
-            </select>
+                <!-- Cargar Foto -->
+                <div class="campo">
+                    <label for="foto">Fotografía del Daño (Análisis de visión IA):</label>
+                    <input type="file" name="foto" id="foto" accept="image/*" capture="environment" onchange="previewImage(event)">
+                    <div id="preview-box" class="preview-box" style="display:none;">
+                        <img id="img-preview" src="#" alt="Previsualización">
+                    </div>
+                </div>
 
-            <label>Descripción del problema</label>
-            <textarea name="descripcion" rows="3"
-            placeholder="Describe el daño..."></textarea>
+                <!-- Ubicación por GPS -->
+                <div class="campo">
+                    <label>Ubicación Geográfica (GPS):</label>
+                    <button type="button" onclick="obtenerUbicacion()" class="btn-gps">📍 Usar mi ubicación actual</button>
+                    <p id="status-gps" class="status-gps"></p>
+                </div>
 
-            <label>📍 Ubicación del daño</label>
+                <input type="hidden" name="latitud" id="latitud" required>
+                <input type="hidden" name="longitud" id="longitud" required>
 
-            <!-- PASO 1: Lista de veredas -->
-            <select id="vereda-select" onchange="seleccionarVereda()">
-                <option value="">-- Paso 1: Selecciona tu vereda --</option>
-                <option value="5.3200,-73.8100">Vereda El Hato</option>
-                <option value="5.3050,-73.8300">Vereda Soaga</option>
-                <option value="5.3300,-73.7900">Vereda Guachetá</option>
-                <option value="5.2900,-73.8400">Vereda Espigas</option>
-                <option value="5.3400,-73.8200">Vereda Pasoancho</option>
-                <option value="5.3150,-73.8500">Vereda Pueblo Viejo</option>
-                <option value="5.2800,-73.8100">Vereda Merchán</option>
-                <option value="5.3500,-73.7800">Vereda Rinconada</option>
-                <option value="5.3100,-73.7700">Vereda Apartadero</option>
-                <option value="5.2700,-73.8200">Vereda Peñas</option>
-            </select>
+                <div class="campo">
+                    <label for="descripcion">Descripción detallada:</label>
+                    <textarea name="descripcion" id="descripcion" rows="3" placeholder="Describe puntos de referencia o detalles adicionales..."></textarea>
+                </div>
 
-            <!-- PASO 2: Mapa para afinar -->
-            <div id="mapa-preview"></div>
-            <p class="mapa-hint" id="mapa-hint" style="display:none">
-                👆 Toca el mapa para marcar el punto exacto del daño
-            </p>
-
-            <!-- Estado de la ubicación -->
-            <p class="ubicacion-info" id="ubicacion-texto">
-                ⚠️ Selecciona una vereda para ver el mapa
-            </p>
-
-            <!-- Campos ocultos -->
-            <input type="hidden" name="latitud" id="latitud" required>
-            <input type="hidden" name="longitud" id="longitud" required>
-
-            <button type="submit">💾 Guardar Reporte</button>
-        </form>
+                <button type="submit" class="btn-guardar">Guardar Reporte</button>
+            </form>
+        </section>
     </main>
 
     <script>
-        var mapa = null;
-        var marcador = null;
-
-        function seleccionarVereda() {
-            var select = document.getElementById('vereda-select');
-            var valor = select.value;
-            if (!valor) return;
-
-            var coords = valor.split(',');
-            var lat = parseFloat(coords[0]);
-            var lon = parseFloat(coords[1]);
-            var nombreVereda = select.options[select.selectedIndex].text;
-
-            // Guarda coordenadas iniciales
-            document.getElementById('latitud').value = lat;
-            document.getElementById('longitud').value = lon;
-
-            // Muestra hint del mapa
-            document.getElementById('mapa-hint').style.display = 'block';
-
-            // Actualiza mensaje
-            actualizarMensaje(nombreVereda, false);
-
-            if (mapa === null) {
-                // Crea el mapa por primera vez
-                mapa = L.map('mapa-preview').setView([lat, lon], 14);
-                L.tileLayer(
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    { attribution: '© OpenStreetMap' }
-                ).addTo(mapa);
-
-                // Marcador inicial
-                marcador = L.marker([lat, lon])
-                    .addTo(mapa)
-                    .bindPopup('📍 ' + nombreVereda)
-                    .openPopup();
-
-                // Evento: tocar el mapa para afinar ubicación
-                mapa.on('click', function(e) {
-                    var newLat = e.latlng.lat.toFixed(6);
-                    var newLon = e.latlng.lng.toFixed(6);
-
-                    marcador.setLatLng(e.latlng)
-                        .bindPopup('📍 Punto exacto del daño')
-                        .openPopup();
-
-                    document.getElementById('latitud').value = newLat;
-                    document.getElementById('longitud').value = newLon;
-
-                    actualizarMensaje('Punto exacto marcado en el mapa', true);
-                });
-
-            } else {
-                // Mueve el mapa y marcador a la vereda seleccionada
-                mapa.setView([lat, lon], 14);
-                marcador.setLatLng([lat, lon])
-                    .bindPopup('📍 ' + nombreVereda)
-                    .openPopup();
-            }
-
-            setTimeout(function() { mapa.invalidateSize(); }, 100);
+    function obtenerUbicacion() {
+        const status = document.getElementById('status-gps');
+        if (!navigator.geolocation) {
+            status.textContent = 'La geolocalización no es soportada por tu dispositivo';
+            status.style.color = 'red';
+            return;
         }
+        status.textContent = 'Obteniendo coordenadas GPS de Ubaté...';
+        status.style.color = '#0066cc';
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                document.getElementById('latitud').value = position.coords.latitude;
+                document.getElementById('longitud').value = position.coords.longitude;
+                status.textContent = `📍 Ubicación fijada: Lat ${position.coords.latitude.toFixed(5)}, Lon ${position.coords.longitude.toFixed(5)}`;
+                status.style.color = '#2e7d32';
+            },
+            (err) => {
+                status.textContent = '⚠️ No se pudo obtener la ubicación. Ingresa coordenadas o habilita el GPS.';
+                status.style.color = '#c62828';
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
 
-        function actualizarMensaje(texto, exacto) {
-            var el = document.getElementById('ubicacion-texto');
-            el.className = 'ubicacion-info ubicacion-ok';
-            if (exacto) {
-                el.innerHTML = '✅ ' + texto + ' ✔️';
-            } else {
-                el.innerHTML = '📍 ' + texto + ' — puedes afinar tocando el mapa';
-            }
+    function previewImage(event) {
+        const previewBox = document.getElementById('preview-box');
+        const img = document.getElementById('img-preview');
+        const file = event.target.files[0];
+        if (file) {
+            img.src = URL.createObjectURL(file);
+            previewBox.style.display = 'block';
         }
+    }
     </script>
 </body>
 </html>
-```
-
