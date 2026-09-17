@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ingreso administrador - Vías Rurales Ubaté</title>
+</head>
+<body>
+    <h2>Ingreso de administrador</h2>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST">
+        <label for="usuario">Usuario:</label>
+        <input type="text" id="usuario" name="usuario" required>
+        <br>
+        <label for="clave">Contraseña:</label>
+        <input type="password" id="clave" name="clave" required>
+        <br>
+        <button type="submit">Ingresar</button>
+    </form>
+
+    <a href="{{ url_for('index') }}">Volver al inicio</a>
+</body>
+</html>

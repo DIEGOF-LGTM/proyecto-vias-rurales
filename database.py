@@ -1,13 +1,29 @@
-import mysql.connector
+import psycopg2
 import os
+from urllib.parse import urlparse
 
 def get_db_connection():
-    return mysql.connector.connect(
-        host=os.environ.get("MYSQLHOST", "localhost"),
-        user=os.environ.get("MYSQLUSER", "root"),
-        password=os.environ.get("MYSQLPASSWORD", "1234"),  # Tu contraseña local de MySQL
-        database=os.environ.get("MYSQLDATABASE", "vias_rurales"),
-        port=int(os.environ.get("MYSQLPORT", 3306))
+    # Render entrega la conexion como una sola URL en DATABASE_URL
+    # (formato: postgres://usuario:clave@host:puerto/nombre_bd)
+    database_url = os.environ.get("DATABASE_URL")
+
+    if database_url:
+        resultado = urlparse(database_url)
+        return psycopg2.connect(
+            host=resultado.hostname,
+            user=resultado.username,
+            password=resultado.password,
+            dbname=resultado.path[1:],  # quita la "/" inicial
+            port=resultado.port or 5432
+        )
+
+    # Alternativa para pruebas en tu computador, si no usas DATABASE_URL local
+    return psycopg2.connect(
+        host=os.environ.get("PGHOST", "localhost"),
+        user=os.environ.get("PGUSER", "postgres"),
+        password=os.environ.get("PGPASSWORD", "1234"),
+        dbname=os.environ.get("PGDATABASE", "vias_rurales"),
+        port=int(os.environ.get("PGPORT", 5432))
     )
 
 def init_db():
@@ -15,7 +31,7 @@ def init_db():
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reporte_incidente (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             via VARCHAR(150) NOT NULL,
             estado VARCHAR(50) NOT NULL,
             dano VARCHAR(50) NOT NULL,
