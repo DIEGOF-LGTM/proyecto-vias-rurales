@@ -19,6 +19,18 @@ def init_db():
             ia_evaluacion TEXT
         )
     ''')
+    
+    # Asegurar que existan las columnas nuevas en bases de datos previas
+    try:
+        c.execute("ALTER TABLE reportes ADD COLUMN foto TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        c.execute("ALTER TABLE reportes ADD COLUMN ia_evaluacion TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
 
@@ -39,10 +51,3 @@ def obtener_reportes():
     reportes = c.fetchall()
     conn.close()
     return reportes
-
-def eliminar_reporte(id):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("DELETE FROM reportes WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
