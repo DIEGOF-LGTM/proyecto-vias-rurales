@@ -2,3 +2,4 @@ Flask
 folium
 gunicorn
 mysql-connector-python
+psycopg2-binary
