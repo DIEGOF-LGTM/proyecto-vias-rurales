@@ -3,248 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Vía - Mapa de Reportes Ubaté</title>
+    <title>Mi Vía Ubaté - Reportes Registrados</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e293b;
-            --accent: #10b981;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --primary: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
         }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg);
-            color: #334155;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 40px;
         }
 
         header {
-            background: var(--primary);
-            color: white;
-            padding: 15px 30px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
-        header h1 {
-            margin: 0;
-            font-size: 1.4rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .logo {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        nav a {
-            color: #94a3b8;
+        nav { display: flex; gap: 12px; }
+
+        .nav-btn {
             text-decoration: none;
-            margin-left: 15px;
+            color: var(--text-muted);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 0.9rem;
             font-weight: 600;
-            padding: 8px 16px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
         }
 
-        nav a:hover, nav a.active {
+        .nav-btn.primary {
+            background: linear-gradient(135deg, #0284c7, #4f46e5);
             color: white;
-            background: rgba(255, 255, 255, 0.1);
         }
 
-        .main-container {
-            max-width: 1200px;
-            margin: 25px auto;
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
             padding: 0 20px;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 25px;
-        }
-
-        .map-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
         }
 
         #mapa-general {
-            height: 480px;
-            width: 100%;
-            border-radius: 12px;
-            z-index: 1;
-        }
-
-        .section-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            color: var(--primary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            height: 380px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
         }
 
         .grid-reportes {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
 
         .card-reporte {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
         }
 
-        .card-reporte:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1);
-        }
-
-        .card-img {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            background-color: #e2e8f0;
-        }
-
-        .card-content {
-            padding: 18px;
-        }
-
-        .tag-estado {
+        .badge {
             display: inline-block;
             padding: 4px 10px;
-            border-radius: 20px;
+            border-radius: 8px;
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
-        .estado-bueno { background: #dcfce7; color: #166534; }
-        .estado-regular { background: #fef3c7; color: #92400e; }
-        .estado-malo { background: #fee2e2; color: #991b1b; }
-        .estado-critico { background: #7f1d1d; color: white; }
+        .badge.malo { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .badge.regular { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .badge.bueno { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 
-        .tag-ia {
-            background: #f1f5f9;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-top: 10px;
-            display: inline-block;
-        }
-
-        .popup-img {
+        .img-reporte {
             width: 100%;
-            height: 120px;
+            height: 160px;
             object-fit: cover;
-            border-radius: 6px;
-            margin-top: 8px;
+            border-radius: 12px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>🛤️ Mi Vía <span>Ubaté</span></h1>
+        <div class="logo">🛤️ Mi Vía <span>Ubaté</span></div>
         <nav>
-            <a href="/">+ Nuevo Reporte</a>
-            <a href="/reportes" class="active">📍 Mapa & Reportes</a>
+            <a href="/" class="nav-btn">＋ Nuevo Reporte</a>
+            <a href="/reportes" class="nav-btn primary">📍 Ver Todos los Reportes</a>
         </nav>
     </header>
 
-    <div class="main-container">
-        
-        <!-- Mapa de Monitoreo General -->
-        <div class="map-card">
-            <div class="section-title">
-                <span>📍 Monitoreo en Tiempo Real de Vías Rurales</span>
-                <span style="font-size: 0.85rem; color: #64748b;">Haga clic en un marcador para ver la evaluación de IA</span>
-            </div>
-            <div id="mapa-general"></div>
-        </div>
+    <div class="container">
+        <h2 style="margin-bottom: 20px;">Mapa General de Afectaciones</h2>
+        <div id="mapa-general" data-reportes='{{ reportes_json | tojson }}'></div>
 
-        <!-- Tarjetas de Lista de Reportes -->
-        <div>
-            <div class="section-title">📋 Historial de Daños Registrados</div>
-            <div class="grid-reportes">
-                {% for r in reportes %}
-                <div class="card-reporte">
-                    {% if len(r) > 8 and r[8] and r[8] != 'sin_foto.jpg' %}
-                        <img class="card-img" src="{{ url_for('static', filename='uploads/' + r[8]) }}" alt="Foto del reporte">
-                    {% else %}
-                        <div class="card-img" style="display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:0.9rem;">Sin imagen adjunta</div>
-                    {% endif %}
-                    <div class="card-content">
-                        <span class="tag-estado estado-{{ r[2]|lower }}">{{ r[2] }}</span>
-                        <h3 style="margin: 0 0 8px 0; font-size: 1.1rem; color: #0f172a;">{{ r[1] }}</h3>
-                        <p style="margin: 0 0 6px 0; font-size: 0.9rem; color: #475569;"><strong>Daño:</strong> {{ r[3] }}</p>
-                        <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: #64748b;">{{ r[4] if r[4] else 'Sin descripción adicional.' }}</p>
-                        <div class="tag-ia">🤖 {{ r[9] if len(r) > 9 and r[9] else 'Sin análisis' }}</div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 12px;">📅 {{ r[7] }}</div>
-                    </div>
-                </div>
-                {% else %}
-                <p style="color: #64748b;">No hay reportes registrados en este momento.</p>
-                {% endfor %}
-            </div>
-        </div>
+        <h3 style="margin-bottom: 20px;">
+            Historial de Reportes ({{ reportes_json|length }})
+        </h3>
 
+        <div class="grid-reportes">
+            {% for item in reportes_json %}
+            <div class="card-reporte">
+                <span class="badge {{ item.estado|lower }}">{{ item.estado }}</span>
+                <h4>Vereda: {{ item.vereda }}</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 6px 0;"><strong>Daño:</strong> {{ item.dano }}</p>
+                <p style="font-size: 0.9rem;">{{ item.descripcion }}</p>
+                
+                {% if item.foto and item.foto != 'sin_foto.jpg' %}
+                    <img src="{{ url_for('static', filename='uploads/' + item.foto) }}" class="img-reporte" alt="Foto daño">
+                {% endif %}
+
+                <p style="font-size: 0.75rem; color: var(--primary); margin-top: 10px;">{{ item.ia }}</p>
+            </div>
+            {% else %}
+            <p style="color: var(--text-muted);">No hay reportes registrados aún.</p>
+            {% endfor %}
+        </div>
     </div>
-
-    <!-- Inyección segura de datos fuera del script de JS -->
-    <script id="data-reportes" type="application/json">
-        {{ reportes_json | tojson | safe }}
-    </script>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            // Inicializar Mapa centrado en Ubaté
-            const map = L.map('mapa-general').setView([5.3081, -73.8143], 13);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
+        const mapElement = document.getElementById('mapa-general');
+        const reportesData = mapElement.getAttribute('data-reportes');
+        const reportes = JSON.parse(reportesData || '[]');
 
-            // Extraer y parsear los datos JSON
-            const scriptElement = document.getElementById('data-reportes');
-            const reportes = JSON.parse(scriptElement.textContent || '[]');
+        const map = L.map('mapa-general').setView([5.3081, -73.8143], 12);
 
-            reportes.forEach(function(r) {
-                const lat = parseFloat(r.lat);
-                const lng = parseFloat(r.lng);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
 
-                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                    const marker = L.marker([lat, lng]).addTo(map);
-                    
-                    let imagenHTML = (r.foto && r.foto !== 'sin_foto.jpg') 
-                        ? `<img class="popup-img" src="/static/uploads/${encodeURIComponent(r.foto)}">` 
-                        : '';
-
-                    marker.bindPopup(`
-                        <div style="font-family: 'Inter', sans-serif; max-width: 200px;">
-                            <h4 style="margin: 0 0 5px 0; color: #0f172a;">${r.vereda || 'Sin vereda'}</h4>
-                            <p style="margin: 0; font-size: 0.8rem; color: #475569;"><strong>Estado:</strong> ${r.estado || 'N/A'}</p>
-                            <p style="margin: 0; font-size: 0.8rem; color: #475569;"><strong>Daño:</strong> ${r.dano || 'N/A'}</p>
-                            <p style="margin: 5px 0 0 0; font-size: 0.75rem; background: #e2e8f0; padding: 4px; border-radius: 4px;"><strong>IA:</strong> ${r.ia || 'Sin análisis'}</p>
-                            ${imagenHTML}
-                        </div>
-                    `);
-                }
-            });
+        reportes.forEach(function(rep) {
+            if (rep.lat && rep.lng) {
+                const marker = L.marker([rep.lat, rep.lng]).addTo(map);
+                marker.bindPopup(
+                    '<b>Vereda ' + rep.vereda + '</b><br>' +
+                    'Estado: ' + rep.estado + '<br>' +
+                    'Daño: ' + rep.dano
+                );
+            }
         });
     </script>
 </body>
