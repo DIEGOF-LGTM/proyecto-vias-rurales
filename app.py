@@ -1,20 +1,19 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for
 from werkzeug.utils import secure_filename
-import database  # Módulo de SQLite/MySQL para la base de datos
+import database  # Módulo para la base de datos
 
 app = Flask(__name__)
 
-# Configuración de la carpeta para guardar las fotos subidas
+# Configuración de carpetas y formatos
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Crear la carpeta de uploads si no existe
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Inicializar la base de datos al arrancar la aplicación
+# Inicializar la base de datos
 database.init_db()
 
 def archivo_permitido(filename):
@@ -27,36 +26,40 @@ def index():
 @app.route('/guardar_reporte', methods=['POST'])
 def guardar_reporte():
     if request.method == 'POST':
-        vereda = request.form.get('vereda', '')
-        estado = request.form.get('estado', 'Bueno')
-        dano = request.form.get('dano', 'Ninguno')
-        descripcion = request.form.get('descripcion', '')
-        lat = request.form.get('lat', 0)
-        lng = request.form.get('lng', 0)
+        try:
+            # Capturar campos soportando 'lat/latitud' y 'lng/longitud'
+            vereda = request.form.get('vereda', 'Soaga')
+            estado = request.form.get('estado', 'Malo')
+            dano = request.form.get('dano', 'Hueco/Deterioro')
+            descripcion = request.form.get('descripcion', '')
+            
+            lat = request.form.get('lat') or request.form.get('latitud') or 5.3050
+            lng = request.form.get('lng') or request.form.get('longitud') or -73.8150
+            
+            # Procesar foto
+            foto_filename = 'sin_foto.jpg'
+            if 'foto' in request.files:
+                file = request.files['foto']
+                if file and file.filename != '' and archivo_permitido(file.filename):
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                    foto_filename = filename
+
+            analisis_ia = f"Evaluación IA: Severidad {estado}"
+
+            # Guardar en base de datos
+            database.insertar_reporte(vereda, estado, dano, descripcion, lat, lng, foto_filename, analisis_ia)
+
+            return redirect(url_for('ver_reportes'))
         
-        # Procesar la imagen subida
-        foto_filename = 'sin_foto.jpg'
-        if 'foto' in request.files:
-            file = request.files['foto']
-            if file and file.filename != '' and archivo_permitido(file.filename):
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                foto_filename = filename
-
-        # Lógica o llamada al módulo de IA para evaluar la foto o descripción
-        analisis_ia = f"Evaluación IA: Severidad {estado}"
-
-        # Guardar en la base de datos (ajusta los parámetros según la función en database.py)
-        database.insertar_reporte(vereda, estado, dano, descripcion, lat, lng, foto_filename, analisis_ia)
-
-        return redirect(url_for('ver_reportes'))
+        except Exception as e:
+            # Si ocurre un error, nos dirá exactamente qué pasó en lugar del Error 500 genérico
+            return f"<h3>Error al guardar en la base de datos:</h3><p>{e}</p><a href='/'>Volver al formulario</a>", 500
 
 @app.route('/reportes')
 def ver_reportes():
-    # Obtener todos los registros desde la base de datos
     datos = database.obtener_reportes()
 
-    # Formatear los registros para pasarlos de forma segura al mapa y lista
     reportes_lista = []
     for r in datos:
         reportes_lista.append({

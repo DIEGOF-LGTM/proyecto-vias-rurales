@@ -133,7 +133,7 @@
             letter-spacing: 0.5px;
         }
 
-        select, input[type="text"], input[type="file"] {
+        select, input[type="text"], input[type="file"], textarea {
             width: 100%;
             padding: 12px 16px;
             background: rgba(15, 23, 42, 0.6);
@@ -146,8 +146,13 @@
             transition: border-color 0.2s ease;
         }
 
-        select:focus, input:focus {
+        select:focus, input:focus, textarea:focus {
             border-color: var(--primary);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
         }
 
         /* Custom File Input */
@@ -235,14 +240,17 @@
                     <label>Vereda (Municipio de Ubaté)</label>
                     <select name="vereda" required>
                         <option value="">-- Seleccione una vereda --</option>
+                        <option value="Soaga">Soaga</option>
                         <option value="Guaguate">Guaguate</option>
-                        <option value="Soagafara">Soagafara</option>
+                        <option value="Guequetira">Guequetira</option>
                         <option value="San José">San José</option>
+                        <option value="Volcán">Volcán</option>
+                        <option value="Tausavita">Tausavita</option>
+                        <option value="Sucunchoque">Sucunchoque</option>
+                        <option value="Palogordo">Palogordo</option>
+                        <option value="San Luis">San Luis</option>
                         <option value="Villarreal">Villarreal</option>
                         <option value="Santa Ana">Santa Ana</option>
-                        <option value="Paluato">Paluato</option>
-                        <option value="Sucunchoque">Sucunchoque</option>
-                        <option value="Tasaquira">Tasaquira</option>
                     </select>
                 </div>
 
@@ -268,8 +276,13 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Descripción del Daño (Opcional)</label>
+                    <textarea name="descripcion" placeholder="Escribe detalles adicionales sobre el estado de la vía..."></textarea>
+                </div>
+
+                <div class="form-group">
                     <label>Fotografía del Daño (para Análisis IA)</label>
-                    <input type="file" name="foto" accept="image/*" required>
+                    <input type="file" name="foto" accept="image/*">
                 </div>
 
                 <div class="form-group">
@@ -277,8 +290,11 @@
                     <button type="button" class="btn-gps" onclick="obtenerGPS()">📍 Usar mi ubicación actual (GPS)</button>
                     <div id="mapa"></div>
                     
+                    <!-- Campos para enviar coordenadas de forma compatible -->
                     <input type="hidden" name="lat" id="lat" value="5.3081">
                     <input type="hidden" name="lng" id="lng" value="-73.8143">
+                    <input type="hidden" name="latitud" id="latitud" value="5.3081">
+                    <input type="hidden" name="longitud" id="longitud" value="-73.8143">
                 </div>
 
                 <button type="submit" class="btn-submit">🚀 Enviar Reporte Vial</button>
@@ -302,6 +318,8 @@
         function actualizarCoordenadas(lat, lng) {
             document.getElementById('lat').value = lat;
             document.getElementById('lng').value = lng;
+            document.getElementById('latitud').value = lat;
+            document.getElementById('longitud').value = lng;
         }
 
         marker.on('dragend', function (e) {
@@ -322,7 +340,11 @@
                     map.setView([lat, lng], 16);
                     marker.setLatLng([lat, lng]);
                     actualizarCoordenadas(lat, lng);
+                }, function(error) {
+                    alert("No se pudo obtener la ubicación GPS. Por favor selecciona el punto en el mapa.");
                 });
+            } else {
+                alert("Tu navegador no soporta geolocalización.");
             }
         }
     </script>
