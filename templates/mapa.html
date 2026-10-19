@@ -1,36 +1,49 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa - Ubaté</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <header>
-        <h1>🛣️ Vías Rurales Ubaté</h1>
-        <nav>
-            <a href="/">Reportar</a>
-            <a href="/reportes">Ver Reportes</a>
-            <a href="/mapa">Ver Mapa</a>
-        </nav>
-    </header>
+{% extends "base.html" %}{% block c %}
+<h2>Mapa de afectaciones y rutas</h2>
+<p>Toca el origen y luego el destino para ver rutas y tiempos estimados.</p>
+<div id="map"></div>
+<div class="fila">
+<button id="gps" type="button">Usar mi ubicación como origen</button>
+<button id="reset" type="button">Limpiar ruta</button>
+</div>
+<div id="info"></div>
+<script>
+const COLOR = {'Hueco':'#dc2626','Derrumbe':'#ea580c','Inundación':'#2563eb'};
+const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 13);
+const capasRuta = []; let puntos = [];
 
-    <main>
-        <h2>🗺️ Mapa de Daños</h2>
+fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
+  const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
+  L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#6b7280', fillOpacity: .8})
+    .addTo(map).bindPopup(`<b>${r.dano}</b><br>${r.via} · ${r.estado}<br>${r.descripcion || ''}<br><small>${r.fecha}</small>`);
+}));
 
-        <div class="leyenda">
-            <span class="punto rojo">🔴 Hueco</span>
-            <span class="punto naranja">🟠 Derrumbe</span>
-            <span class="punto azul">🔵 Inundación</span>
-            <span class="punto gris">⚫ Otro</span>
-        </div>
+function limpiar(){ capasRuta.forEach(c => map.removeLayer(c)); capasRuta.length = 0; puntos = []; document.getElementById('info').innerHTML = ''; }
+document.getElementById('reset').onclick = limpiar;
+document.getElementById('gps').onclick = () => navigator.geolocation.getCurrentPosition(p => {
+  limpiar(); agregar(L.latLng(p.coords.latitude, p.coords.longitude));
+}, () => alert('No se pudo obtener tu ubicación.'));
+map.on('click', e => { if (puntos.length === 2) limpiar(); agregar(e.latlng); });
 
-        <div class="mapa-container">
-            <iframe src="{{ url_for('static', filename='mapa_generado.html') }}"></iframe>
-        </div>
-
-        <a href="/" class="btn-volver">+ Nuevo Reporte</a>
-    </main>
-</body>
-</html>
+function agregar(ll){
+  puntos.push(ll);
+  capasRuta.push(L.marker(ll).addTo(map));
+  if (puntos.length === 2) pedirRuta();
+}
+async function pedirRuta(){
+  const [a, b] = puntos, info = document.getElementById('info');
+  info.textContent = 'Calculando…';
+  const rutas = await (await fetch(`/api/ruta?olat=${a.lat}&olon=${a.lng}&dlat=${b.lat}&dlon=${b.lng}`)).json();
+  if (rutas.error || !rutas.length){ info.textContent = 'No se encontró ruta entre esos puntos.'; return; }
+  info.innerHTML = '';
+  rutas.forEach((ru, i) => {
+    const l = L.geoJSON(ru.geometry, {style: {color: i ? '#9ca3af' : '#14532d', weight: i ? 4 : 6}}).addTo(map);
+    capasRuta.push(l); if (!i) map.fitBounds(l.getBounds());
+    const n = ru.afectaciones.length;
+    info.innerHTML += `<div class="ruta ${i ? '' : 'mejor'}"><b>${i ? 'Alternativa' : 'Recomendada'}</b>:
+      ${ru.distancia_km} km · ${ru.tiempo_ajustado_min} min
+      ${n ? `<br><span class="aviso">${n} daño(s) reportado(s) en el camino (tiempo base ${ru.tiempo_min} min)</span>` : '<br>Sin daños reportados en el camino'}</div>`;
+  });
+}
+</script>
+{% endblock %}
