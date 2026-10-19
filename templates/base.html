@@ -5,6 +5,14 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+function baseMap(id, lat, lon, z){
+  const m = L.map(id).setView([lat, lon], z);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(m);
+  return m;
+}
+</script>
 </head><body>
 <nav><b>Mi Vía</b>
 <a href="{{ url_for('index') }}">Reportar</a>
@@ -16,12 +24,4 @@
 {% for m in get_flashed_messages() %}<div class="msg">{{ m }}</div>{% endfor %}
 {% block c %}{% endblock %}
 </main>
-<script>
-function baseMap(id, lat, lon, z){
-  const m = L.map(id).setView([lat, lon], z);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(m);
-  return m;
-}
-</script>
 </body></html>
