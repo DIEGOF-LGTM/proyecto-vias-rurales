@@ -14,7 +14,7 @@ ADMIN_PASS = os.environ.get("ADMIN_PASS", "cambiame123")
 
 def get_conn():
     if USE_PG:
-        return psycopg2.connect(DATABASE_URL, sslmode="require")
+        return psycopg2.connect(DATABASE_URL, sslmode="require", connect_timeout=10)
     return sqlite3.connect("vias_rurales.db")
 
 
@@ -24,7 +24,14 @@ def init_db():
     pk = "SERIAL PRIMARY KEY" if USE_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
     c.execute(f"""CREATE TABLE IF NOT EXISTS reportes (
         id {pk}, via TEXT, estado TEXT, dano TEXT, descripcion TEXT,
-        latitud REAL, longitud REAL, fecha TEXT, foto TEXT, ia_evaluacion TEXT)""")
+        latitud REAL, longitud REAL, fecha TEXT, foto TEXT, ia_evaluacion TEXT, medio TEXT)""")
+    # Migración: agrega la columna 'medio' si la tabla ya existía sin ella
+    if USE_PG:
+        c.execute("ALTER TABLE reportes ADD COLUMN IF NOT EXISTS medio TEXT")
+    else:
+        c.execute("PRAGMA table_info(reportes)")
+        if "medio" not in [r[1] for r in c.fetchall()]:
+            c.execute("ALTER TABLE reportes ADD COLUMN medio TEXT")
     c.execute(f"""CREATE TABLE IF NOT EXISTS usuarios (
         id {pk}, usuario TEXT UNIQUE, password_hash TEXT)""")
     c.execute(f"SELECT 1 FROM usuarios WHERE usuario = {PH}", (ADMIN_USER,))
@@ -37,13 +44,13 @@ def init_db():
 
 
 def guardar_reporte(via, estado, dano, descripcion, latitud, longitud, fecha,
-                    foto="sin_foto.jpg", ia_evaluacion="No analizado"):
+                    foto="sin_foto.jpg", ia_evaluacion="No analizado", medio="No indicado"):
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"""INSERT INTO reportes
-        (via, estado, dano, descripcion, latitud, longitud, fecha, foto, ia_evaluacion)
-        VALUES ({",".join([PH] * 9)})""",
-        (via, estado, dano, descripcion, latitud, longitud, fecha, foto, ia_evaluacion))
+        (via, estado, dano, descripcion, latitud, longitud, fecha, foto, ia_evaluacion, medio)
+        VALUES ({",".join([PH] * 10)})""",
+        (via, estado, dano, descripcion, latitud, longitud, fecha, foto, ia_evaluacion, medio))
     conn.commit()
     conn.close()
 

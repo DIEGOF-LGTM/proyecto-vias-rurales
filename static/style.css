@@ -5,17 +5,29 @@ nav{display:flex;flex-wrap:wrap;gap:1.2rem;align-items:center;padding:.8rem 1.2r
 nav a{color:var(--texto);text-decoration:none;opacity:.85}nav a:hover{opacity:1;color:var(--acento)}
 nav b{margin-right:auto;font-size:1.1rem;color:var(--acento)}
 main{max-width:860px;margin:1.4rem auto;padding:1.4rem;background:var(--card);border:1px solid var(--borde);border-radius:16px;backdrop-filter:blur(12px)}
-@media(max-width:900px){main{margin:1rem}}
-h2{margin-top:0}
+@media(max-width:900px){main{margin:1rem;padding:1rem}}
+h2{margin-top:0}a{color:var(--acento)}
 label{display:block;margin:.9rem 0 .25rem;font-weight:600;color:var(--suave);font-size:.9rem}
 input,select,textarea{font:inherit;width:100%;padding:.6rem;border:1px solid var(--borde);border-radius:8px;background:rgba(0,0,0,.3);color:var(--texto)}
+input[hidden]{display:none}input#via_otra{margin-top:.5rem}
 select option{background:#10324a}
-button,.btn{font:inherit;background:var(--acento);color:#06281c;font-weight:600;border:0;cursor:pointer;margin-top:1rem;padding:.6rem 1.2rem;border-radius:8px}
+button,.btn{font:inherit;background:var(--acento);color:#06281c;font-weight:600;border:0;cursor:pointer;margin-top:1rem;padding:.6rem 1.2rem;border-radius:8px;white-space:nowrap}
 button.sec{background:transparent;color:var(--texto);border:1px solid var(--borde)}
+button.peligro{background:#dc2626;color:#fff;margin:0;padding:.3rem .8rem}
 .msg{background:rgba(52,211,153,.15);border:1px solid var(--acento);padding:.6rem;border-radius:8px;margin:.6rem 0}
-#map{height:380px;border-radius:10px;border:1px solid var(--borde);margin-top:.3rem}
+#map{height:400px;border-radius:10px;border:1px solid var(--borde);margin-top:.5rem}
 table{width:100%;border-collapse:collapse}
 th,td{padding:.5rem;border-bottom:1px solid var(--borde);text-align:left;font-size:.9rem}
-.ruta{background:rgba(0,0,0,.25);border:1px solid var(--borde);border-radius:10px;padding:.7rem;margin:.6rem 0}
-.ruta.mejor{border-color:var(--acento)}.aviso{color:var(--alerta)}.suave{color:var(--suave)}
-.fila{display:flex;gap:.8rem;flex-wrap:wrap;align-items:center}
+.ruta{background:rgba(0,0,0,.25);border:1px solid var(--borde);border-radius:10px;padding:.7rem;margin:.6rem 0;cursor:pointer}
+.ruta.mejor{border-color:var(--acento)}.ruta .t{font-weight:700;color:var(--acento)}
+.aviso{color:var(--alerta)}.suave{color:var(--suave)}
+.fila{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.fila.nowrap{flex-wrap:nowrap}.fila input,.fila select{flex:1;min-width:0}.fila button{margin-top:0}.fila+.fila{margin-top:.6rem}
+.fila button#calcular,.fila button#swap,.fila button#reset{margin-top:.8rem}
+.pin{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;color:#fff;font-weight:700;font-size:.8rem;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.pin-o{background:#16a34a}.pin-d{background:#dc2626}
+.leyenda{font-size:.85rem}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 .3rem 0 .8rem}
+@media(max-width:600px){.fila.nowrap{flex-wrap:wrap}}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.chip{margin:0;background:transparent;color:var(--texto);border:1px solid var(--borde);padding:.45rem .9rem;font-weight:500}
+.chip.activo{background:var(--acento);color:#06281c;border-color:var(--acento);font-weight:700}

@@ -12,6 +12,11 @@ function baseMap(id, lat, lon, z){
     {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(m);
   return m;
 }
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const $ = id => document.getElementById(id);
 </script>
 </head><body>
 <nav><b>Mi Vía</b>

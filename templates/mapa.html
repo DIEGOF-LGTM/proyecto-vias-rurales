@@ -1,49 +1,169 @@
 {% extends "base.html" %}{% block c %}
 <h2>Mapa de afectaciones y rutas</h2>
-<p>Toca el origen y luego el destino para ver rutas y tiempos estimados.</p>
-<div id="map"></div>
-<div class="fila">
-<button id="gps" type="button">Usar mi ubicación como origen</button>
-<button id="reset" type="button">Limpiar ruta</button>
+<label for="q-origen">Origen</label>
+<div class="fila nowrap">
+<input id="q-origen" placeholder="Busca un lugar o toca el mapa">
+<button type="button" class="sec" id="b-origen">Buscar</button>
+<button type="button" class="sec" id="gps">Mi ubicación</button>
 </div>
+<label for="q-destino">Destino</label>
+<div class="fila nowrap">
+<input id="q-destino" placeholder="Busca un lugar o toca el mapa">
+<button type="button" class="sec" id="b-destino">Buscar</button>
+<select id="sel-vereda" aria-label="Ir a una vereda"><option value="">Ir a vereda…</option></select>
+</div>
+<label>¿Cómo te desplazas?</label>
+<div class="chips" id="modos">{% for k, m in modos.items() %}<button type="button" class="chip" data-m="{{ k }}">{{ m.icono }} {{ m.nombre }}</button>{% endfor %}</div>
+<div class="fila">
+<button type="button" id="calcular">Calcular ruta</button>
+<button type="button" class="sec" id="swap">Invertir</button>
+<button type="button" class="sec" id="reset">Limpiar</button>
+</div>
+<div id="map"></div>
+<p class="suave" id="hint">Toca el mapa para fijar el origen y otra vez para el destino. Puedes arrastrar los marcadores.</p>
 <div id="info"></div>
+<p class="suave leyenda">
+<span class="dot" style="background:#ef4444"></span>Hueco
+<span class="dot" style="background:#f97316"></span>Derrumbe
+<span class="dot" style="background:#3b82f6"></span>Inundación
+<span class="dot" style="background:#a855f7"></span>Drenaje
+<span class="dot" style="background:#9ca3af"></span>Otro
+</p>
 <script>
-const COLOR = {'Hueco':'#dc2626','Derrumbe':'#ea580c','Inundación':'#2563eb'};
+const V = {{ veredas|tojson }};
+const COLOR = {'Hueco':'#ef4444','Derrumbe':'#f97316','Inundación':'#3b82f6','Drenaje':'#a855f7'};
 const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 13);
-const capasRuta = []; let puntos = [];
+const icono = t => L.divIcon({className: 'pin pin-' + t, html: t.toUpperCase(), iconSize: [26, 26]});
+const P = {o: {ll: null, m: null, input: 'q-origen'}, d: {ll: null, m: null, input: 'q-destino'}};
+let capas = [], rutas = [], sel = 0, meta = {};
+let modo = 'carro';
+try { const g = localStorage.getItem('modo'); if (g && document.querySelector('.chip[data-m="' + g + '"]')) modo = g; } catch (err) {}
+function marcarModo(){ document.querySelectorAll('.chip').forEach(b => b.classList.toggle('activo', b.dataset.m === modo)); }
+marcarModo();
+$('modos').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  modo = b.dataset.m;
+  try { localStorage.setItem('modo', modo); } catch (err) {}
+  marcarModo();
+  if (P.o.ll && P.d.ll) calcular();
+});
 
+// Reportes existentes
 fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
   const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
-  L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#6b7280', fillOpacity: .8})
-    .addTo(map).bindPopup(`<b>${r.dano}</b><br>${r.via} · ${r.estado}<br>${r.descripcion || ''}<br><small>${r.fecha}</small>`);
-}));
+  const foto = r.foto && r.foto !== 'sin_foto.jpg'
+    ? `<br><img src="/static/uploads/${encodeURIComponent(r.foto)}" width="160" alt="Foto del daño">` : '';
+  L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#9ca3af', fillOpacity: .8, bubblingMouseEvents: false})
+    .addTo(map).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}<br>${r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : ''}<br><small>${esc(r.fecha)}</small>${foto}`);
+})).catch(() => {});
 
-function limpiar(){ capasRuta.forEach(c => map.removeLayer(c)); capasRuta.length = 0; puntos = []; document.getElementById('info').innerHTML = ''; }
-document.getElementById('reset').onclick = limpiar;
-document.getElementById('gps').onclick = () => navigator.geolocation.getCurrentPosition(p => {
-  limpiar(); agregar(L.latLng(p.coords.latitude, p.coords.longitude));
-}, () => alert('No se pudo obtener tu ubicación.'));
-map.on('click', e => { if (puntos.length === 2) limpiar(); agregar(e.latlng); });
+const coordTxt = ll => ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5);
+const fmt = m => m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min';
+const eta = m => new Date(Date.now() + m * 60000).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'});
+const aviso = t => { $('info').innerHTML = '<p class="aviso">' + esc(t) + '</p>'; };
 
-function agregar(ll){
-  puntos.push(ll);
-  capasRuta.push(L.marker(ll).addTo(map));
-  if (puntos.length === 2) pedirRuta();
+function fijar(k, ll, texto){
+  const p = P[k];
+  p.ll = ll;
+  if (p.m) p.m.setLatLng(ll);
+  else {
+    p.m = L.marker(ll, {icon: icono(k), draggable: true}).addTo(map);
+    p.m.on('dragend', () => { p.ll = p.m.getLatLng(); $(p.input).value = coordTxt(p.ll); calcular(); });
+  }
+  $(p.input).value = texto || coordTxt(ll);
+  if (P.o.ll && P.d.ll) calcular();
 }
-async function pedirRuta(){
-  const [a, b] = puntos, info = document.getElementById('info');
-  info.textContent = 'Calculando…';
-  const rutas = await (await fetch(`/api/ruta?olat=${a.lat}&olon=${a.lng}&dlat=${b.lat}&dlon=${b.lng}`)).json();
-  if (rutas.error || !rutas.length){ info.textContent = 'No se encontró ruta entre esos puntos.'; return; }
-  info.innerHTML = '';
-  rutas.forEach((ru, i) => {
-    const l = L.geoJSON(ru.geometry, {style: {color: i ? '#9ca3af' : '#14532d', weight: i ? 4 : 6}}).addTo(map);
-    capasRuta.push(l); if (!i) map.fitBounds(l.getBounds());
-    const n = ru.afectaciones.length;
-    info.innerHTML += `<div class="ruta ${i ? '' : 'mejor'}"><b>${i ? 'Alternativa' : 'Recomendada'}</b>:
-      ${ru.distancia_km} km · ${ru.tiempo_ajustado_min} min
-      ${n ? `<br><span class="aviso">${n} daño(s) reportado(s) en el camino (tiempo base ${ru.tiempo_min} min)</span>` : '<br>Sin daños reportados en el camino'}</div>`;
+
+map.on('click', e => fijar(P.o.ll ? 'd' : 'o', e.latlng));
+
+async function buscar(k){
+  const txt = $(P[k].input).value.trim();
+  if (!txt) return;
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=co'
+      + '&viewbox=-74.2,5.6,-73.5,5.0&q=' + encodeURIComponent(txt);
+    const d = await (await fetch(url)).json();
+    if (!d.length) return aviso('No se encontró ese lugar. Prueba con otro nombre o toca el mapa.');
+    const ll = L.latLng(+d[0].lat, +d[0].lon);
+    fijar(k, ll, d[0].display_name.split(',').slice(0, 2).join(','));
+    if (!(P.o.ll && P.d.ll)) map.flyTo(ll, 15);
+  } catch (e) { aviso('No se pudo buscar. Revisa tu conexión.'); }
+}
+$('b-origen').onclick = () => buscar('o');
+$('b-destino').onclick = () => buscar('d');
+$('q-origen').addEventListener('keydown', e => { if (e.key === 'Enter') buscar('o'); });
+$('q-destino').addEventListener('keydown', e => { if (e.key === 'Enter') buscar('d'); });
+
+$('gps').onclick = () => {
+  if (!navigator.geolocation) return aviso('Tu navegador no permite ubicación.');
+  navigator.geolocation.getCurrentPosition(p => {
+    const ll = L.latLng(p.coords.latitude, p.coords.longitude);
+    fijar('o', ll, 'Mi ubicación');
+    if (!P.d.ll) map.flyTo(ll, 15);
+  }, () => aviso('No se pudo obtener tu ubicación. Revisa el permiso del navegador.'),
+  {enableHighAccuracy: true, timeout: 15000});
+};
+
+Object.keys(V).filter(n => V[n]).forEach(n => {
+  const o = document.createElement('option'); o.value = n; o.textContent = n; $('sel-vereda').appendChild(o);
+});
+$('sel-vereda').onchange = e => { const c = V[e.target.value]; if (c) fijar('d', L.latLng(c[0], c[1]), e.target.value); e.target.value = ''; };
+
+$('swap').onclick = () => {
+  if (!(P.o.ll && P.d.ll)) return;
+  const a = P.o.ll, b = P.d.ll, ta = $('q-origen').value, tb = $('q-destino').value;
+  P.o.ll = b; P.d.ll = a; P.o.m.setLatLng(b); P.d.m.setLatLng(a);
+  $('q-origen').value = tb; $('q-destino').value = ta; calcular();
+};
+$('reset').onclick = () => {
+  limpiarRutas();
+  ['o', 'd'].forEach(k => { if (P[k].m) map.removeLayer(P[k].m); P[k].m = null; P[k].ll = null; $(P[k].input).value = ''; });
+  $('info').innerHTML = '';
+};
+$('calcular').onclick = () => calcular();
+
+function limpiarRutas(){ capas.forEach(c => map.removeLayer(c)); capas = []; rutas = []; }
+
+async function calcular(){
+  if (!(P.o.ll && P.d.ll)) return aviso('Fija el origen y el destino.');
+  limpiarRutas();
+  $('info').innerHTML = '<p class="suave">Calculando…</p>';
+  let data;
+  try {
+    data = await (await fetch(`/api/ruta?olat=${P.o.ll.lat}&olon=${P.o.ll.lng}&dlat=${P.d.ll.lat}&dlon=${P.d.ll.lng}&modo=${modo}`)).json();
+  } catch (e) { return aviso('Error de conexión. Intenta de nuevo.'); }
+  if (data.error) return aviso(data.error);
+  rutas = data.rutas; meta = data; sel = 0; dibujar(true);
+}
+
+function dibujar(ajustar){
+  capas.forEach(c => map.removeLayer(c)); capas = [];
+  const orden = rutas.map((_, i) => i).filter(i => i !== sel).concat(sel);  // la elegida queda encima
+  orden.forEach(i => {
+    const activa = i === sel;
+    const l = L.polyline(rutas[i].geometry.coordinates.map(c => [c[1], c[0]]),
+      {color: activa ? '#34d399' : '#9ca3af', weight: activa ? 7 : 5, opacity: activa ? 1 : .7, bubblingMouseEvents: false}).addTo(map);
+    l.on('click', () => { sel = i; dibujar(false); });
+    capas.push(l);
+    if (activa && ajustar) map.fitBounds(l.getBounds(), {padding: [30, 30]});
   });
+  rutas[sel].afectaciones.forEach(a => capas.push(
+    L.circleMarker([a.lat, a.lon], {radius: 14, color: '#fbbf24', weight: 3, fill: false, bubblingMouseEvents: false})
+      .addTo(map).bindTooltip(esc(a.dano))));
+  $('info').innerHTML = rutas.map((ru, i) => {
+    const n = ru.afectaciones.length;
+    return `<div class="ruta ${i === sel ? 'mejor' : ''}" data-i="${i}">
+      <b>${i === 0 ? 'Recomendada' : 'Alternativa ' + i}</b> · <span class="t">${fmt(ru.tiempo_ajustado_min)}</span> · ${ru.distancia_km} km
+      <br><span class="suave">Llegada aprox. ${eta(ru.tiempo_ajustado_min)}</span>
+      ${n ? `<br><span class="aviso">${n} daño(s) reportado(s) en el camino (sin daños: ${fmt(ru.tiempo_min)})</span>`
+          : '<br>Sin daños reportados en el camino'}</div>`;
+  }).join('') + '<p class="suave">Tiempo estimado ' + esc(meta.modo).toLowerCase() + ', sin tráfico en vivo. Suma '
+    + (meta.seg_dano >= 60 ? meta.seg_dano / 60 + ' min' : meta.seg_dano + ' s') + ' por cada daño reportado cerca de la ruta.'
+    + (meta.aproximada ? ' Ruta calculada por carretera: no hay datos de senderos para este medio.' : '') + '</p>';
 }
+$('info').addEventListener('click', e => {
+  const c = e.target.closest('.ruta');
+  if (c && rutas.length) { sel = +c.dataset.i; dibujar(false); }
+});
 </script>
 {% endblock %}

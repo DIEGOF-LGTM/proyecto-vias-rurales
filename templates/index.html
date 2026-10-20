@@ -1,18 +1,28 @@
 {% extends "base.html" %}{% block c %}
 <h2>Reportar daño en la vía</h2>
-<form method="post" action="{{ url_for('reportar') }}" enctype="multipart/form-data">
+<form method="post" action="{{ url_for('reportar') }}" enctype="multipart/form-data" id="form">
 <label for="via">Vereda</label>
-<select name="via" id="via" required>{% for v in veredas %}<option>{{ v }}</option>{% endfor %}</select>
+<select name="via" id="via" required>
+{% for v in veredas %}<option>{{ v }}</option>{% endfor %}
+<option value="__otra__">Otra vereda…</option>
+</select>
+<input name="via_otra" id="via_otra" placeholder="Escribe el nombre de la vereda" maxlength="80" hidden>
 <label for="dano">Tipo de daño</label>
-<select name="dano" id="dano"><option>Hueco / Bache profundo</option><option>Derrumbe / Deslizamiento</option><option>Inundación</option><option>Drenaje</option><option>Otro</option></select>
+<select name="dano" id="dano">{% for d in danos %}<option>{{ d }}</option>{% endfor %}</select>
 <label for="estado">Estado de la vía</label>
-<select name="estado" id="estado"><option>Bueno</option><option selected>Regular</option><option>Malo</option></select>
+<select name="estado" id="estado">{% for e in estados %}<option {% if e == 'Regular' %}selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+<label for="medio">¿Cómo te desplazabas? (opcional)</label>
+<select name="medio" id="medio">{% for m in medios %}<option {% if m == 'No indicado' %}selected{% endif %}>{{ m }}</option>{% endfor %}</select>
 <label for="descripcion">Descripción</label>
-<textarea name="descripcion" id="descripcion" rows="3"></textarea>
+<textarea name="descripcion" id="descripcion" rows="3" maxlength="500"></textarea>
 <label for="foto">Foto (opcional)</label>
 <input type="file" name="foto" id="foto" accept="image/*">
-<label>Toca el mapa donde está el daño</label>
+<label>Ubicación del daño: toca el mapa, arrastra el marcador o usa tu ubicación actual</label>
 <div id="map"></div>
+<div class="fila">
+<button type="button" class="sec" id="gps">Usar mi ubicación actual</button>
+<span id="coords" class="suave">Aún sin punto marcado</span>
+</div>
 <input type="hidden" name="latitud" id="lat"><input type="hidden" name="longitud" id="lon">
 <button>Enviar reporte</button>
 </form>
@@ -20,16 +30,36 @@
 const V = {{ veredas|tojson }};
 const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 13);
 let marcador = null;
-function poner(latlng){
-  if (marcador) map.removeLayer(marcador);
-  marcador = L.marker(latlng).addTo(map);
-  document.getElementById('lat').value = latlng.lat;
-  document.getElementById('lon').value = latlng.lng;
+
+function poner(ll){
+  if (!marcador){
+    marcador = L.marker(ll, {draggable: true}).addTo(map);
+    marcador.on('dragend', () => poner(marcador.getLatLng()));
+  } else marcador.setLatLng(ll);
+  $('lat').value = ll.lat;
+  $('lon').value = ll.lng;
+  $('coords').textContent = 'Punto: ' + ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5);
 }
 map.on('click', e => poner(e.latlng));
-document.getElementById('via').addEventListener('change', e => {
-  const c = V[e.target.value]; if (c) map.flyTo(c, 15);
+
+$('via').addEventListener('change', e => {
+  const otra = e.target.value === '__otra__';
+  $('via_otra').hidden = !otra;
+  $('via_otra').required = otra;
+  const c = V[e.target.value];
+  if (c) map.flyTo(c, 15);
 });
-document.getElementById('via').dispatchEvent(new Event('change'));
+$('via').dispatchEvent(new Event('change'));
+
+$('gps').onclick = () => {
+  if (!navigator.geolocation) return alert('Tu navegador no permite ubicación.');
+  navigator.geolocation.getCurrentPosition(
+    p => { const ll = L.latLng(p.coords.latitude, p.coords.longitude); poner(ll); map.flyTo(ll, 17); },
+    () => alert('No se pudo obtener tu ubicación. Revisa el permiso del navegador.'),
+    {enableHighAccuracy: true, timeout: 15000});
+};
+$('form').addEventListener('submit', e => {
+  if (!$('lat').value){ e.preventDefault(); alert('Marca el punto del daño en el mapa.'); }
+});
 </script>
 {% endblock %}

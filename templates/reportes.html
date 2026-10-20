@@ -1,11 +1,13 @@
 {% extends "base.html" %}{% block c %}
 <h2>Reportes registrados ({{ reportes|length }})</h2>
 <div style="overflow-x:auto"><table>
-<tr><th>ID</th><th>Vereda</th><th>Daño</th><th>Estado</th><th>Fecha</th><th>IA</th>{% if session.admin %}<th></th>{% endif %}</tr>
+<tr><th>ID</th><th>Vereda</th><th>Daño</th><th>Estado</th><th>Fecha</th><th>Medio</th><th>Foto</th><th>IA</th>{% if session.admin %}<th></th>{% endif %}</tr>
 {% for r in reportes %}
-<tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[3] }}</td><td>{{ r[2] }}</td><td>{{ r[7] }}</td><td>{{ r[9] }}</td>
-{% if session.admin %}<td><form method="post" action="{{ url_for('borrar', id_=r[0]) }}"><button style="margin:0;background:#b91c1c">Borrar</button></form></td>{% endif %}</tr>
-{% else %}<tr><td colspan="7">Aún no hay reportes. Registra el primero desde Reportar.</td></tr>
+<tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[3] }}</td><td>{{ r[2] }}</td><td>{{ r[7] }}</td><td>{{ r[10] or '—' }}</td>
+<td>{% if r[8] and r[8] != 'sin_foto.jpg' %}<a href="{{ url_for('static', filename='uploads/' ~ r[8]) }}" target="_blank" rel="noopener">Ver</a>{% else %}—{% endif %}</td>
+<td>{{ r[9] }}</td>
+{% if session.admin %}<td><form method="post" action="{{ url_for('borrar', id_=r[0]) }}" onsubmit="return confirm('¿Borrar este reporte?')"><button class="peligro">Borrar</button></form></td>{% endif %}</tr>
+{% else %}<tr><td colspan="9">Aún no hay reportes. Registra el primero desde Reportar.</td></tr>
 {% endfor %}
 </table></div>
 {% endblock %}
