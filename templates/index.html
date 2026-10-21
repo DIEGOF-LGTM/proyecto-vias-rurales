@@ -1,65 +1,223 @@
 {% extends "base.html" %}{% block c %}
+<style>
+#map{height:65vh;min-height:420px}
+#map.full{position:fixed;inset:0;height:100vh;min-height:0;z-index:3000;border-radius:0}
+.vpin{position:absolute;left:-6px;top:-6px;display:flex;align-items:center;gap:5px;white-space:nowrap;pointer-events:none}
+.vpin i{width:12px;height:12px;box-sizing:border-box;border-radius:50%;background:#fbbf24;border:2px solid #0f172a;flex:none}
+.vpin span{background:rgba(15,23,42,.88);color:#fff;padding:2px 8px;border-radius:10px;font-size:.8rem;font-weight:600;border:1px solid #fbbf24}
+#titulo-vereda{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,23,42,.92);color:#fff;padding:10px 22px;border-radius:12px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.4);max-width:90%}
+#titulo-vereda[hidden]{display:none}
+#titulo-vereda h3{margin:0;font-size:1.7rem;line-height:1.15}
+#titulo-vereda small{display:block;margin-top:4px;opacity:.85}
+</style>
 <h2>Reportar daño en la vía</h2>
-<form method="post" action="{{ url_for('reportar') }}" enctype="multipart/form-data" id="form">
-<label for="via">Vereda</label>
-<select name="via" id="via" required>
-{% for v in veredas %}<option>{{ v }}</option>{% endfor %}
-<option value="__otra__">Otra vereda…</option>
-</select>
-<input name="via_otra" id="via_otra" placeholder="Escribe el nombre de la vereda" maxlength="80" hidden>
-<label for="dano">Tipo de daño</label>
-<select name="dano" id="dano">{% for d in danos %}<option>{{ d }}</option>{% endfor %}</select>
-<label for="estado">Estado de la vía</label>
-<select name="estado" id="estado">{% for e in estados %}<option {% if e == 'Regular' %}selected{% endif %}>{{ e }}</option>{% endfor %}</select>
-<label for="medio">¿Cómo te desplazabas? (opcional)</label>
-<select name="medio" id="medio">{% for m in medios %}<option {% if m == 'No indicado' %}selected{% endif %}>{{ m }}</option>{% endfor %}</select>
-<label for="descripcion">Descripción</label>
-<textarea name="descripcion" id="descripcion" rows="3" maxlength="500"></textarea>
-<label for="foto">Foto (opcional)</label>
-<input type="file" name="foto" id="foto" accept="image/*">
-<label>Ubicación del daño: toca el mapa, arrastra el marcador o usa tu ubicación actual</label>
-<div id="map"></div>
-<div class="fila">
-<button type="button" class="sec" id="gps">Usar mi ubicación actual</button>
-<span id="coords" class="suave">Aún sin punto marcado</span>
+
+<label for="q-lugar">1. Marca dónde está el problema</label>
+<div class="fila nowrap">
+<input id="q-lugar" placeholder="Busca un lugar o toca el mapa">
+<button type="button" class="sec" id="b-lugar">Buscar</button>
+<button type="button" class="sec" id="gps">Mi ubicación</button>
+<button type="button" class="sec btn-full" id="full">⛶ Pantalla completa</button>
 </div>
-<input type="hidden" name="latitud" id="lat"><input type="hidden" name="longitud" id="lon">
-<button>Enviar reporte</button>
+<div id="map"></div>
+<p class="suave" id="hint">Toca el mapa para marcar el punto exacto; puedes arrastrar el marcador. Los reportes que ya existen se ven en el mapa.</p>
+<p class="suave leyenda">
+<span class="dot" style="background:#ef4444"></span>Hueco
+<span class="dot" style="background:#f97316"></span>Derrumbe
+<span class="dot" style="background:#3b82f6"></span>Inundación
+<span class="dot" style="background:#a855f7"></span>Drenaje
+<span class="dot" style="background:#dc2626"></span>Vía cerrada / bloqueada
+<span class="dot" style="background:#9ca3af"></span>Otro
+</p>
+
+<form method="post" action="{{ url_for('reportar') }}" enctype="multipart/form-data" id="form">
+<input type="hidden" name="latitud" id="latitud">
+<input type="hidden" name="longitud" id="longitud">
+
+<label for="via">2. Vereda</label>
+<select id="via" name="via" required>
+<option value="">Elige la vereda…</option>
+{% for v in veredas %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+<option value="__otra__">Otra (escribir)</option>
+</select>
+<input id="via_otra" name="via_otra" placeholder="Nombre de la vereda o de la vía" maxlength="80" style="display:none">
+
+<label for="dano">Tipo de problema</label>
+<select id="dano" name="dano">{% for d in danos %}<option>{{ d }}</option>{% endfor %}</select>
+<p class="aviso" id="aviso-cierre" style="display:none">⛔ Las rutas evitarán este punto mientras el reporte exista. Cuéntanos el motivo en la descripción (por ejemplo, obra de placa huella).</p>
+
+<label for="estado">Estado de la vía</label>
+<select id="estado" name="estado">{% for e in estados %}<option{% if e == 'Regular' %} selected{% endif %}>{{ e }}</option>{% endfor %}</select>
+
+<label for="medio">¿Cómo te desplazabas? (opcional)</label>
+<select id="medio" name="medio">{% for m in medios %}<option{% if m == 'No indicado' %} selected{% endif %}>{{ m }}</option>{% endfor %}</select>
+
+<label for="descripcion">Descripción</label>
+<textarea id="descripcion" name="descripcion" maxlength="500" rows="3" placeholder="Qué pasa, desde cuándo, hasta dónde llega…"></textarea>
+
+<label for="foto">Foto (opcional, máximo 8 MB)</label>
+<input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp">
+
+<p class="aviso" id="msg"></p>
+<button type="submit">Guardar reporte</button>
 </form>
+
 <script>
 const V = {{ veredas|tojson }};
-const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 13);
-let marcador = null;
+const COLOR = {'Hueco':'#ef4444','Derrumbe':'#f97316','Inundación':'#3b82f6','Drenaje':'#a855f7',
+               'Vía cerrada':'#dc2626','Vía bloqueada':'#7f1d1d'};
+const CIERRE = ['Vía cerrada', 'Vía bloqueada'];
+const RADIO_CIERRE = 80;  // metros; debe coincidir con RADIO_CIERRE_M de app.py
+const ALIAS = {'Palo Gordo': 'Palogordo', 'Soaga': 'Soagá', 'El Cedro': 'El Cedro Volcán', 'Chirquín': 'Chirquin'};
 
-function poner(ll){
-  if (!marcador){
-    marcador = L.marker(ll, {draggable: true}).addTo(map);
-    marcador.on('dragend', () => poner(marcador.getLatLng()));
-  } else marcador.setLatLng(ll);
-  $('lat').value = ll.lat;
-  $('lon').value = ll.lng;
-  $('coords').textContent = 'Punto: ' + ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5);
+const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 14);
+
+// Capas: relieve por defecto, calle y satélite opcionales
+const relieve = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+  {maxNativeZoom: 17, maxZoom: 19, attribution: '© OpenTopoMap (CC-BY-SA) · © OpenStreetMap'}).addTo(map);
+const calle = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom: 19, attribution: '© OpenStreetMap'});
+const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxNativeZoom: 18, maxZoom: 19, attribution: 'Tiles © Esri'});
+const capaVeredas = L.layerGroup().addTo(map);
+const capaReportes = L.layerGroup().addTo(map);
+L.control.layers({'Relieve': relieve, 'Calle': calle, 'Satélite': satelite},
+                 {'Veredas': capaVeredas, 'Reportes': capaReportes}).addTo(map);
+
+// Pantalla completa: botón de arriba, botón del mapa y tecla Esc
+function pantallaCompleta(forzar){
+  const f = map.getContainer().classList.toggle('full', forzar);
+  document.querySelectorAll('.btn-full').forEach(b => b.textContent = f ? '✕ Cerrar pantalla completa' : '⛶ Pantalla completa');
+  setTimeout(() => map.invalidateSize(), 100);
 }
-map.on('click', e => poner(e.latlng));
-
-$('via').addEventListener('change', e => {
-  const otra = e.target.value === '__otra__';
-  $('via_otra').hidden = !otra;
-  $('via_otra').required = otra;
-  const c = V[e.target.value];
-  if (c) map.flyTo(c, 15);
+const Ampliar = L.Control.extend({onAdd(){
+  const b = L.DomUtil.create('button', 'sec btn-full');
+  b.type = 'button'; b.textContent = '⛶ Pantalla completa'; b.style.cssText = 'padding:6px 10px;cursor:pointer';
+  L.DomEvent.disableClickPropagation(b);
+  b.onclick = () => pantallaCompleta();
+  return b;
+}});
+new Ampliar({position: 'bottomright'}).addTo(map);
+$('full').onclick = () => pantallaCompleta();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && map.getContainer().classList.contains('full')) pantallaCompleta(false);
 });
-$('via').dispatchEvent(new Event('change'));
 
+// Reportes existentes (los cierres también dibujan su radio)
+fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
+  const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
+  const foto = r.foto && r.foto !== 'sin_foto.jpg'
+    ? `<br><img src="/static/uploads/${encodeURIComponent(r.foto)}" width="160" alt="Foto del daño">` : '';
+  if (CIERRE.includes(r.dano))
+    L.circle([r.lat, r.lon], {radius: RADIO_CIERRE, color: '#dc2626', weight: 2, dashArray: '6 4', fillOpacity: .15, interactive: false}).addTo(capaReportes);
+  L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#9ca3af', fillOpacity: .8, bubblingMouseEvents: false})
+    .addTo(capaReportes).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}<br>${r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : ''}<br><small>${esc(r.fecha)}</small>${foto}`);
+})).catch(() => {});
+
+// Punto del nuevo reporte
+const iconoPunto = L.divIcon({className: '', iconSize: [30, 30], iconAnchor: [15, 30],
+  html: '<div style="font-size:28px;line-height:30px;text-align:center">📍</div>'});
+let punto = null;
+function ponerPunto(ll){
+  if (punto) punto.setLatLng(ll);
+  else {
+    punto = L.marker(ll, {icon: iconoPunto, draggable: true}).addTo(map);
+    punto.on('dragend', () => ponerPunto(punto.getLatLng()));
+  }
+  $('latitud').value = ll.lat.toFixed(6);
+  $('longitud').value = ll.lng.toFixed(6);
+  $('msg').textContent = '';
+  $('hint').textContent = 'Punto marcado: ' + ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5) + '. Arrastra el marcador si quieres ajustarlo.';
+}
+map.on('click', e => ponerPunto(e.latlng));
+
+// Búsqueda de lugares y ubicación actual
+async function buscar(){
+  const txt = $('q-lugar').value.trim();
+  if (!txt) return;
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=co'
+      + '&viewbox=-74.2,5.6,-73.5,5.0&q=' + encodeURIComponent(txt);
+    const d = await (await fetch(url)).json();
+    if (!d.length) { $('hint').textContent = 'No se encontró ese lugar. Prueba con otro nombre o toca el mapa.'; return; }
+    const ll = L.latLng(+d[0].lat, +d[0].lon);
+    map.flyTo(ll, 16);
+    ponerPunto(ll);
+  } catch (e) { $('hint').textContent = 'No se pudo buscar. Revisa tu conexión.'; }
+}
+$('b-lugar').onclick = buscar;
+$('q-lugar').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } });
 $('gps').onclick = () => {
-  if (!navigator.geolocation) return alert('Tu navegador no permite ubicación.');
-  navigator.geolocation.getCurrentPosition(
-    p => { const ll = L.latLng(p.coords.latitude, p.coords.longitude); poner(ll); map.flyTo(ll, 17); },
-    () => alert('No se pudo obtener tu ubicación. Revisa el permiso del navegador.'),
-    {enableHighAccuracy: true, timeout: 15000});
+  if (!navigator.geolocation) { $('hint').textContent = 'Tu navegador no permite ubicación.'; return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    const ll = L.latLng(p.coords.latitude, p.coords.longitude);
+    map.flyTo(ll, 17);
+    ponerPunto(ll);
+  }, () => { $('hint').textContent = 'No se pudo obtener tu ubicación. Revisa el permiso del navegador.'; },
+  {enableHighAccuracy: true, timeout: 15000});
 };
+
+// ---- Veredas: etiquetas en el mapa y vuelo al elegirla ----
+const cacheV = {};
+try { const g = JSON.parse(localStorage.getItem('vcoords') || '{}'); Object.keys(g).forEach(k => cacheV[k] = L.latLng(g[k][0], g[k][1])); } catch (e) {}
+const guardarCache = () => { try { const o = {}; Object.keys(cacheV).forEach(k => o[k] = [cacheV[k].lat, cacheV[k].lng]); localStorage.setItem('vcoords', JSON.stringify(o)); } catch (e) {} };
+const espera = ms => new Promise(r => setTimeout(r, ms));
+
+async function coordsDe(n){
+  if (V[n]) return L.latLng(V[n][0], V[n][1]);
+  if (cacheV[n]) return cacheV[n];
+  const qs = [n, ALIAS[n]].filter(Boolean);       // sin coordenadas: buscarla en OpenStreetMap
+  for (let i = 0; i < qs.length; i++) {
+    if (i) await espera(1100);                     // Nominatim pide máximo 1 consulta por segundo
+    try {
+      const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&bounded=1'
+        + '&viewbox=-73.95,5.40,-73.70,5.25&q=' + encodeURIComponent(qs[i] + ', Ubaté, Cundinamarca');
+      const d = await (await fetch(url)).json();
+      if (d.length) { cacheV[n] = L.latLng(+d[0].lat, +d[0].lon); guardarCache(); return cacheV[n]; }
+    } catch (e) {}
+  }
+  return null;
+}
+function marcarVereda(n, ll){
+  L.marker(ll, {interactive: false, keyboard: false,
+    icon: L.divIcon({className: '', iconSize: [0, 0], html: '<div class="vpin"><i></i><span>' + esc(n) + '</span></div>'})})
+    .addTo(capaVeredas);
+}
+async function cargarVeredas(){
+  for (const n of Object.keys(V)) {
+    const buscaba = !V[n] && !cacheV[n];
+    const ll = await coordsDe(n);
+    if (ll) marcarVereda(n, ll);
+    if (buscaba) await espera(1100);
+  }
+}
+cargarVeredas();
+
+const ttl = document.createElement('div'); ttl.id = 'titulo-vereda'; ttl.hidden = true;
+map.getContainer().appendChild(ttl);
+L.DomEvent.disableClickPropagation(ttl);
+async function irAVereda(n){
+  ttl.hidden = false;
+  ttl.innerHTML = '<h3>' + esc(n) + '</h3><small>Buscando…</small>';
+  const ll = await coordsDe(n);
+  if (!ll) { ttl.innerHTML = '<h3>' + esc(n) + '</h3><small>Esta vereda aún no tiene ubicación en el mapa. Toca el mapa para marcar el punto.</small>'; return; }
+  map.flyTo(ll, 15, {duration: 1.2});
+  ttl.innerHTML = '<h3>' + esc(n) + '</h3>';
+}
+$('via').onchange = e => {
+  const n = e.target.value;
+  $('via_otra').style.display = n === '__otra__' ? '' : 'none';
+  $('via_otra').required = n === '__otra__';
+  if (n && n !== '__otra__') irAVereda(n); else ttl.hidden = true;
+};
+$('dano').onchange = e => { $('aviso-cierre').style.display = CIERRE.includes(e.target.value) ? '' : 'none'; };
+
 $('form').addEventListener('submit', e => {
-  if (!$('lat').value){ e.preventDefault(); alert('Marca el punto del daño en el mapa.'); }
+  if (!$('latitud').value) {
+    e.preventDefault();
+    $('msg').textContent = 'Marca el punto del problema en el mapa antes de guardar.';
+    $('map').scrollIntoView({behavior: 'smooth', block: 'center'});
+  }
 });
 </script>
 {% endblock %}
