@@ -19,8 +19,19 @@ UPLOADS = os.path.join(app.static_folder, "uploads")
 os.makedirs(UPLOADS, exist_ok=True)
 
 EXTENSIONES = {"jpg", "jpeg", "png", "webp"}
-DANOS = ["Hueco / Bache profundo", "Derrumbe / Deslizamiento", "Inundación", "Drenaje", "Otro"]
+DANOS = ["Hueco / Bache profundo", "Derrumbe / Deslizamiento", "Inundación", "Drenaje",
+         "Vía cerrada", "Vía bloqueada", "Otro"]
+# Estos tipos NO son "daños" que sumen tiempo: son tramos que la ruta debe evitar.
+CIERRES = ("Vía cerrada", "Vía bloqueada")
+RADIO_CIERRE_M = 80  # radio alrededor del punto reportado que la ruta no debe tocar
 ESTADOS = ["Bueno", "Regular", "Malo"]
+
+# OpenRouteService (gratis, requiere clave): permite rodear zonas cerradas de verdad.
+# Se configura en Render > Environment > ORS_API_KEY. Sin clave, se usa OSRM y solo
+# se descartan las alternativas que pasan por el cierre.
+ORS_KEY = os.environ.get("ORS_API_KEY")
+ORS_PERFIL = {"car": "driving-car", "foot": "foot-walking", "bike": "cycling-regular"}
+
 # Medios de transporte. "kmh" = velocidad media supuesta en vías rurales;
 # "factor" = multiplica el tiempo de carro. "seg_dano" = segundos extra por cada daño cerca de la ruta.
 # Son supuestos propios: justifícalos en el informe o ajústalos aquí.
@@ -71,6 +82,22 @@ def dist_m(lat1, lon1, lat2, lon2):
     dp, dl = p2 - p1, math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * 6371000 * math.asin(math.sqrt(a))
+
+
+def circulo(lat, lon, r=RADIO_CIERRE_M, n=16):
+    """Polígono GeoJSON (lista de anillos) que aproxima un círculo de r metros."""
+    dlat = r / 111320
+    dlon = r / (111320 * math.cos(math.radians(lat)))
+    anillo = [[lon + dlon * math.cos(2 * math.pi * i / n),
+               lat + dlat * math.sin(2 * math.pi * i / n)] for i in range(n)]
+    anillo.append(anillo[0])
+    return [anillo]
+
+
+def cruza_cierre(coords, cierres):
+    """True si algún punto de la ruta ([lon, lat]) queda dentro del radio de un cierre."""
+    return any(dist_m(la, lo, c[1], c[0]) < RADIO_CIERRE_M
+               for la, lo in cierres for c in coords)
 
 
 @app.errorhandler(413)
@@ -140,7 +167,32 @@ def api_reportes():
     return jsonify([dict(zip(keys, r)) for r in database.obtener_reportes()])
 
 
-def pedir_ruta(perfil, olon, olat, dlon, dlat):
+def pedir_ruta_ors(perfil, olon, olat, dlon, dlat, cierres):
+    """Ruta que rodea los cierres (OpenRouteService). Devuelve el mismo formato que OSRM."""
+    body = {"coordinates": [[olon, olat], [dlon, dlat]],
+            "options": {"avoid_polygons": {
+                "type": "MultiPolygon",
+                "coordinates": [circulo(la, lo) for la, lo in cierres]}}}
+    try:
+        r = requests.post(
+            f"https://api.openrouteservice.org/v2/directions/{ORS_PERFIL[perfil]}/geojson",
+            json=body, headers={"Authorization": ORS_KEY}, timeout=15)
+        if r.status_code != 200:
+            return None
+        f = r.json()["features"][0]
+        s = f["properties"]["summary"]
+        return {"ors": True, "routes": [{"geometry": f["geometry"],
+                                         "distance": s["distance"],
+                                         "duration": s["duration"]}]}
+    except Exception:
+        return None
+
+
+def pedir_ruta(perfil, olon, olat, dlon, dlat, cierres=()):
+    if cierres and ORS_KEY:
+        data = pedir_ruta_ors(perfil, olon, olat, dlon, dlat, cierres)
+        if data:
+            return data
     try:
         data = requests.get(
             f"{SERVIDORES[perfil]}/{olon},{olat};{dlon},{dlat}",
@@ -161,18 +213,26 @@ def api_ruta():
         return jsonify({"error": "Faltan coordenadas"}), 400
     cfg = MODOS.get(request.args.get("modo", "carro"), MODOS["carro"])
 
-    data = pedir_ruta(cfg["perfil"], olon, olat, dlon, dlat)
+    todos = database.obtener_reportes()
+    # columnas: 0 id, 1 via, 2 estado, 3 dano, 4 descripcion, 5 lat, 6 lon, ...
+    cierres = [(r[5], r[6]) for r in todos if r[3] in CIERRES]
+    reps = [(r[5], r[6], r[3]) for r in todos if r[3] not in CIERRES]
+
+    data = pedir_ruta(cfg["perfil"], olon, olat, dlon, dlat, cierres)
     aproximada = False
     if data is None and cfg["perfil"] != "car":      # plan B: usar la red de carreteras
-        data = pedir_ruta("car", olon, olat, dlon, dlat)
+        data = pedir_ruta("car", olon, olat, dlon, dlat, cierres)
         aproximada = data is not None
     if data is None:
         return jsonify({"error": "No hay ruta entre esos puntos o el servicio no responde. Intenta de nuevo."}), 502
 
-    reps = [(r[5], r[6], r[3]) for r in database.obtener_reportes()]
     rutas = []
     for rt in data.get("routes", []):
         coords = rt["geometry"]["coordinates"]  # [lon, lat]
+        # OSRM no sabe evitar zonas: descartamos las alternativas que pasan por un cierre.
+        # (Las de OpenRouteService ya vienen rodeándolos.)
+        if cierres and not data.get("ors") and cruza_cierre(coords, cierres):
+            continue
         muestra = coords[::4] or coords
         cerca = [{"lat": la, "lon": lo, "dano": d} for la, lo, d in reps
                  if any(dist_m(la, lo, c[1], c[0]) < 60 for c in muestra)]
@@ -185,8 +245,11 @@ def api_ruta():
             "tiempo_ajustado_min": max(1, round((seg + len(cerca) * cfg["seg_dano"]) / 60)),
             "afectaciones": cerca,
         })
+    if not rutas:
+        return jsonify({"error": "Todas las rutas posibles pasan por una vía cerrada o bloqueada reportada."}), 404
     rutas.sort(key=lambda x: x["tiempo_ajustado_min"])
-    return jsonify({"rutas": rutas, "modo": cfg["nombre"], "seg_dano": cfg["seg_dano"], "aproximada": aproximada})
+    return jsonify({"rutas": rutas, "modo": cfg["nombre"], "seg_dano": cfg["seg_dano"],
+                    "aproximada": aproximada, "cierres": len(cierres)})
 
 
 @app.route("/login", methods=["GET", "POST"])

@@ -1,4 +1,11 @@
 {% extends "base.html" %}{% block c %}
+<style>
+#titulo-vereda{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,23,42,.92);color:#fff;padding:10px 22px;border-radius:12px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.4);max-width:90%}
+#titulo-vereda[hidden]{display:none}
+#titulo-vereda h3{margin:0;font-size:1.7rem;line-height:1.15}
+#titulo-vereda small{display:block;margin-top:4px;opacity:.85}
+#titulo-vereda button{margin-top:8px}
+</style>
 <h2>Mapa de afectaciones y rutas</h2>
 <label for="q-origen">Origen</label>
 <div class="fila nowrap">
@@ -27,12 +34,31 @@
 <span class="dot" style="background:#f97316"></span>Derrumbe
 <span class="dot" style="background:#3b82f6"></span>Inundación
 <span class="dot" style="background:#a855f7"></span>Drenaje
+<span class="dot" style="background:#dc2626"></span>Vía cerrada / bloqueada
 <span class="dot" style="background:#9ca3af"></span>Otro
 </p>
 <script>
 const V = {{ veredas|tojson }};
-const COLOR = {'Hueco':'#ef4444','Derrumbe':'#f97316','Inundación':'#3b82f6','Drenaje':'#a855f7'};
+const COLOR = {'Hueco':'#ef4444','Derrumbe':'#f97316','Inundación':'#3b82f6','Drenaje':'#a855f7',
+               'Vía cerrada':'#dc2626','Vía bloqueada':'#7f1d1d'};
+const CIERRE = ['Vía cerrada', 'Vía bloqueada'];
+const RADIO_CIERRE = 80;  // metros; debe coincidir con RADIO_CIERRE_M de app.py
+// Nombre alterno para buscar la vereda en OpenStreetMap cuando aún no tiene coordenadas
+const ALIAS = {'Palo Gordo': 'Palogordo', 'Soaga': 'Soagá', 'El Cedro': 'El Cedro Volcán', 'Chirquín': 'Chirquin'};
+const CAL = new URLSearchParams(location.search).has('calibrar');
+let calN = null;
+
 const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 13);
+
+// Capas: relieve por defecto, calle y satélite opcionales
+const relieve = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+  {maxNativeZoom: 17, maxZoom: 19, attribution: '© OpenTopoMap (CC-BY-SA) · © OpenStreetMap'}).addTo(map);
+const calle = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom: 19, attribution: '© OpenStreetMap'});
+const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxNativeZoom: 18, maxZoom: 19, attribution: 'Tiles © Esri'});
+L.control.layers({'Relieve': relieve, 'Calle': calle, 'Satélite': satelite}).addTo(map);
+
 const icono = t => L.divIcon({className: 'pin pin-' + t, html: t.toUpperCase(), iconSize: [26, 26]});
 const P = {o: {ll: null, m: null, input: 'q-origen'}, d: {ll: null, m: null, input: 'q-destino'}};
 let capas = [], rutas = [], sel = 0, meta = {};
@@ -53,6 +79,8 @@ fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
   const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
   const foto = r.foto && r.foto !== 'sin_foto.jpg'
     ? `<br><img src="/static/uploads/${encodeURIComponent(r.foto)}" width="160" alt="Foto del daño">` : '';
+  if (CIERRE.includes(r.dano))
+    L.circle([r.lat, r.lon], {radius: RADIO_CIERRE, color: '#dc2626', weight: 2, dashArray: '6 4', fillOpacity: .15, interactive: false}).addTo(map);
   L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#9ca3af', fillOpacity: .8, bubblingMouseEvents: false})
     .addTo(map).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}<br>${r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : ''}<br><small>${esc(r.fecha)}</small>${foto}`);
 })).catch(() => {});
@@ -74,7 +102,14 @@ function fijar(k, ll, texto){
   if (P.o.ll && P.d.ll) calcular();
 }
 
-map.on('click', e => fijar(P.o.ll ? 'd' : 'o', e.latlng));
+map.on('click', e => {
+  if (CAL) {  // modo calibrar: muestra la línea lista para pegar en veredas.py
+    const t = (calN ? '"' + calN + '": ' : '') + '(' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5) + '),';
+    return L.popup().setLatLng(e.latlng).setContent('<code>' + esc(t) + '</code>').openOn(map);
+  }
+  fijar(P.o.ll ? 'd' : 'o', e.latlng);
+});
+if (CAL) $('hint').textContent = 'MODO CALIBRAR: elige una vereda en "Ir a vereda…", haz clic donde está y copia la línea para veredas.py.';
 
 async function buscar(k){
   const txt = $(P[k].input).value.trim();
@@ -104,10 +139,46 @@ $('gps').onclick = () => {
   {enableHighAccuracy: true, timeout: 15000});
 };
 
-Object.keys(V).filter(n => V[n]).forEach(n => {
+// ---- Veredas: lista completa, vuelo al elegirla y título grande ----
+Object.keys(V).forEach(n => {
   const o = document.createElement('option'); o.value = n; o.textContent = n; $('sel-vereda').appendChild(o);
 });
-$('sel-vereda').onchange = e => { const c = V[e.target.value]; if (c) fijar('d', L.latLng(c[0], c[1]), e.target.value); e.target.value = ''; };
+const ttl = document.createElement('div'); ttl.id = 'titulo-vereda'; ttl.hidden = true;
+map.getContainer().appendChild(ttl);
+L.DomEvent.disableClickPropagation(ttl);
+let zona = null;
+const cacheV = {};
+
+async function coordsDe(n){
+  if (V[n]) return L.latLng(V[n][0], V[n][1]);
+  if (cacheV[n]) return cacheV[n];
+  for (const q of [n, ALIAS[n]].filter(Boolean)) {   // sin coordenadas: buscarla en OpenStreetMap
+    try {
+      const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&bounded=1'
+        + '&viewbox=-73.95,5.40,-73.70,5.25&q=' + encodeURIComponent(q + ', Ubaté, Cundinamarca');
+      const d = await (await fetch(url)).json();
+      if (d.length) { cacheV[n] = L.latLng(+d[0].lat, +d[0].lon); return cacheV[n]; }
+    } catch (e) {}
+  }
+  return null;
+}
+
+async function irAVereda(n){
+  calN = n;
+  if (zona) { map.removeLayer(zona); zona = null; }
+  ttl.hidden = false;
+  ttl.innerHTML = '<h3>' + esc(n) + '</h3><small>Buscando…</small>';
+  const ll = await coordsDe(n);
+  if (!ll) {
+    ttl.innerHTML = '<h3>' + esc(n) + '</h3><small>Esta vereda aún no tiene coordenadas. Agrégalas en veredas.py (usa /mapa?calibrar=1).</small>';
+    return;
+  }
+  map.flyTo(ll, 15, {duration: 1.2});
+  zona = L.circle(ll, {radius: 700, color: '#fbbf24', weight: 2, dashArray: '6 4', fillOpacity: .08, interactive: false}).addTo(map);
+  ttl.innerHTML = '<h3>' + esc(n) + '</h3>' + (CAL ? '' : '<button type="button" class="sec" id="usar-dest">Usar como destino</button>');
+  if (!CAL) $('usar-dest').onclick = () => fijar('d', ll, n);
+}
+$('sel-vereda').onchange = e => { const n = e.target.value; e.target.value = ''; if (n) irAVereda(n); };
 
 $('swap').onclick = () => {
   if (!(P.o.ll && P.d.ll)) return;
@@ -157,7 +228,9 @@ function dibujar(ajustar){
       <br><span class="suave">Llegada aprox. ${eta(ru.tiempo_ajustado_min)}</span>
       ${n ? `<br><span class="aviso">${n} daño(s) reportado(s) en el camino (sin daños: ${fmt(ru.tiempo_min)})</span>`
           : '<br>Sin daños reportados en el camino'}</div>`;
-  }).join('') + '<p class="suave">Tiempo estimado ' + esc(meta.modo).toLowerCase() + ', sin tráfico en vivo. Suma '
+  }).join('')
+    + (meta.cierres ? '<p class="aviso">⛔ ' + meta.cierres + ' vía(s) cerrada(s) o bloqueada(s) reportada(s): las rutas mostradas las evitan.</p>' : '')
+    + '<p class="suave">Tiempo estimado ' + esc(meta.modo).toLowerCase() + ', sin tráfico en vivo. Suma '
     + (meta.seg_dano >= 60 ? meta.seg_dano / 60 + ' min' : meta.seg_dano + ' s') + ' por cada daño reportado cerca de la ruta.'
     + (meta.aproximada ? ' Ruta calculada por carretera: no hay datos de senderos para este medio.' : '') + '</p>';
 }
