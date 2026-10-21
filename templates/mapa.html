@@ -1,5 +1,10 @@
 {% extends "base.html" %}{% block c %}
 <style>
+#map{height:75vh;min-height:460px}
+#map.full{position:fixed;inset:0;height:100vh;min-height:0;z-index:3000;border-radius:0}
+.vpin{position:absolute;left:-6px;top:-6px;display:flex;align-items:center;gap:5px;white-space:nowrap;pointer-events:none}
+.vpin i{width:12px;height:12px;box-sizing:border-box;border-radius:50%;background:#fbbf24;border:2px solid #0f172a;flex:none}
+.vpin span{background:rgba(15,23,42,.88);color:#fff;padding:2px 8px;border-radius:10px;font-size:.8rem;font-weight:600;border:1px solid #fbbf24}
 #titulo-vereda{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,23,42,.92);color:#fff;padding:10px 22px;border-radius:12px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.4);max-width:90%}
 #titulo-vereda[hidden]{display:none}
 #titulo-vereda h3{margin:0;font-size:1.7rem;line-height:1.15}
@@ -24,6 +29,7 @@
 <div class="fila">
 <button type="button" id="calcular">Calcular ruta</button>
 <button type="button" class="sec" id="swap">Invertir</button>
+<button type="button" class="sec btn-full" id="full">⛶ Pantalla completa</button>
 <button type="button" class="sec" id="reset">Limpiar</button>
 </div>
 <div id="map"></div>
@@ -57,7 +63,27 @@ const calle = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   {maxZoom: 19, attribution: '© OpenStreetMap'});
 const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   {maxNativeZoom: 18, maxZoom: 19, attribution: 'Tiles © Esri'});
-L.control.layers({'Relieve': relieve, 'Calle': calle, 'Satélite': satelite}).addTo(map);
+const capaVeredas = L.layerGroup().addTo(map);
+L.control.layers({'Relieve': relieve, 'Calle': calle, 'Satélite': satelite}, {'Veredas': capaVeredas}).addTo(map);
+
+// Pantalla completa: botón de arriba, botón del mapa y tecla Esc
+function pantallaCompleta(forzar){
+  const f = map.getContainer().classList.toggle('full', forzar);
+  document.querySelectorAll('.btn-full').forEach(b => b.textContent = f ? '✕ Cerrar pantalla completa' : '⛶ Pantalla completa');
+  setTimeout(() => map.invalidateSize(), 100);
+}
+const Ampliar = L.Control.extend({onAdd(){
+  const b = L.DomUtil.create('button', 'sec btn-full');
+  b.type = 'button'; b.textContent = '⛶ Pantalla completa'; b.style.cssText = 'padding:6px 10px;cursor:pointer';
+  L.DomEvent.disableClickPropagation(b);
+  b.onclick = () => pantallaCompleta();
+  return b;
+}});
+new Ampliar({position: 'bottomright'}).addTo(map);
+$('full').onclick = () => pantallaCompleta();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && map.getContainer().classList.contains('full')) pantallaCompleta(false);
+});
 
 const icono = t => L.divIcon({className: 'pin pin-' + t, html: t.toUpperCase(), iconSize: [26, 26]});
 const P = {o: {ll: null, m: null, input: 'q-origen'}, d: {ll: null, m: null, input: 'q-destino'}};
@@ -148,20 +174,43 @@ map.getContainer().appendChild(ttl);
 L.DomEvent.disableClickPropagation(ttl);
 let zona = null;
 const cacheV = {};
+try { const g = JSON.parse(localStorage.getItem('vcoords') || '{}'); Object.keys(g).forEach(k => cacheV[k] = L.latLng(g[k][0], g[k][1])); } catch (e) {}
+const guardarCache = () => { try { const o = {}; Object.keys(cacheV).forEach(k => o[k] = [cacheV[k].lat, cacheV[k].lng]); localStorage.setItem('vcoords', JSON.stringify(o)); } catch (e) {} };
+const espera = ms => new Promise(r => setTimeout(r, ms));
 
 async function coordsDe(n){
   if (V[n]) return L.latLng(V[n][0], V[n][1]);
   if (cacheV[n]) return cacheV[n];
-  for (const q of [n, ALIAS[n]].filter(Boolean)) {   // sin coordenadas: buscarla en OpenStreetMap
+  const qs = [n, ALIAS[n]].filter(Boolean);       // sin coordenadas: buscarla en OpenStreetMap
+  for (let i = 0; i < qs.length; i++) {
+    if (i) await espera(1100);                     // Nominatim pide máximo 1 consulta por segundo
     try {
       const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&bounded=1'
-        + '&viewbox=-73.95,5.40,-73.70,5.25&q=' + encodeURIComponent(q + ', Ubaté, Cundinamarca');
+        + '&viewbox=-73.95,5.40,-73.70,5.25&q=' + encodeURIComponent(qs[i] + ', Ubaté, Cundinamarca');
       const d = await (await fetch(url)).json();
-      if (d.length) { cacheV[n] = L.latLng(+d[0].lat, +d[0].lon); return cacheV[n]; }
+      if (d.length) { cacheV[n] = L.latLng(+d[0].lat, +d[0].lon); guardarCache(); return cacheV[n]; }
     } catch (e) {}
   }
   return null;
 }
+
+function marcarVereda(n, ll){
+  L.marker(ll, {interactive: false, keyboard: false,
+    icon: L.divIcon({className: '', iconSize: [0, 0], html: '<div class="vpin"><i></i><span>' + esc(n) + '</span></div>'})})
+    .addTo(capaVeredas);
+}
+async function cargarVeredas(){
+  const faltan = [];
+  for (const n of Object.keys(V)) {
+    const buscaba = !V[n] && !cacheV[n];
+    const ll = await coordsDe(n);
+    if (ll) marcarVereda(n, ll); else faltan.push(n);
+    if (buscaba) await espera(1100);
+  }
+  if (faltan.length && !CAL)
+    $('hint').textContent = 'No se pudo ubicar: ' + faltan.join(', ') + '. Agrega sus coordenadas en veredas.py (usa /mapa?calibrar=1).';
+}
+cargarVeredas();
 
 async function irAVereda(n){
   calN = n;
