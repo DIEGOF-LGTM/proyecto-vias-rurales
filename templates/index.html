@@ -34,7 +34,11 @@
 <input type="hidden" name="latitud" id="latitud">
 <input type="hidden" name="longitud" id="longitud">
 
-<label for="via">2. Vereda</label>
+<label for="foto">2. Foto (opcional, máximo 8 MB)</label>
+<input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp">
+<div id="ia-nota" class="ia-nota" role="status" hidden></div>
+
+<label for="via">3. Vereda</label>
 <select id="via" name="via" required>
 <option value="">Elige la vereda…</option>
 {% for v in veredas %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
@@ -55,9 +59,6 @@
 <label for="descripcion">Descripción</label>
 <textarea id="descripcion" name="descripcion" maxlength="500" rows="3" placeholder="Qué pasa, desde cuándo, hasta dónde llega…"></textarea>
 
-<label for="foto">Foto (opcional, máximo 8 MB)</label>
-<input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp">
-
 <p class="aviso" id="msg"></p>
 <button type="submit">Guardar reporte</button>
 </form>
@@ -70,7 +71,7 @@ const CIERRE = ['Vía cerrada', 'Vía bloqueada'];
 const RADIO_CIERRE = 80;  // metros; debe coincidir con RADIO_CIERRE_M de app.py
 const ALIAS = {'Palo Gordo': 'Palogordo', 'Soaga': 'Soagá', 'El Cedro': 'El Cedro Volcán', 'Chirquín': 'Chirquin'};
 
-const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 14);
+const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 14, false);
 
 // Capas: relieve por defecto, calle y satélite opcionales
 const relieve = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
@@ -108,10 +109,12 @@ fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
   const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
   const foto = r.foto && r.foto !== 'sin_foto.jpg'
     ? `<br><img src="/static/uploads/${encodeURIComponent(r.foto)}" width="160" alt="Foto del daño">` : '';
+  const ia = r.ia && r.ia !== 'No analizado' ? `<br><small>🤖 ${esc(r.ia)}</small>` : '';
+  const medio = r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : '';
   if (CIERRE.includes(r.dano))
     L.circle([r.lat, r.lon], {radius: RADIO_CIERRE, color: '#dc2626', weight: 2, dashArray: '6 4', fillOpacity: .15, interactive: false}).addTo(capaReportes);
   L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#9ca3af', fillOpacity: .8, bubblingMouseEvents: false})
-    .addTo(capaReportes).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}<br>${r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : ''}<br><small>${esc(r.fecha)}</small>${foto}`);
+    .addTo(capaReportes).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}${medio}${ia}<br><small>${esc(r.fecha)}</small><br><a href="/reporte/${r.id}">💬 ${r.n} aporte(s) · Ver y comentar</a>${foto}`);
 })).catch(() => {});
 
 // Punto del nuevo reporte
@@ -211,6 +214,63 @@ $('via').onchange = e => {
   if (n && n !== '__otra__') irAVereda(n); else ttl.hidden = true;
 };
 $('dano').onchange = e => { $('aviso-cierre').style.display = CIERRE.includes(e.target.value) ? '' : 'none'; };
+
+// ---- IA: al elegir una foto sugiere tipo de problema, estado y descripción ----
+// Solo rellena lo que la persona no haya tocado; todo se puede cambiar antes de guardar.
+const manual = {dano: false, estado: false, descripcion: false};
+$('dano').addEventListener('change', e => { if (e.isTrusted) manual.dano = true; });
+$('estado').addEventListener('change', e => { if (e.isTrusted) manual.estado = true; });
+$('descripcion').addEventListener('input', e => { if (e.isTrusted) manual.descripcion = true; });
+
+function mostrarNota(titulo, texto){
+  const caja = $('ia-nota');
+  caja.textContent = '';
+  const b = document.createElement('b');
+  b.textContent = titulo;
+  caja.append(b, texto);
+  caja.hidden = false;
+}
+function sugerir(d){
+  if (d.fuente === 'ia' && d.es_via === false)
+    return mostrarNota('🤖 La IA no ve una vía en esta foto. ', 'Revisa que sea la foto correcta.');
+  const llenados = [];
+  if (d.dano && !manual.dano) {
+    $('dano').value = d.dano;
+    $('dano').dispatchEvent(new Event('change'));      // muestra el aviso si es un cierre
+    llenados.push('tipo de problema');
+  }
+  if (d.estado && !manual.estado) { $('estado').value = d.estado; llenados.push('estado'); }
+  if (d.fuente === 'ia' && d.nota && !manual.descripcion && !$('descripcion').value.trim()) {
+    $('descripcion').value = d.nota; llenados.push('descripción');
+  }
+  if (d.fuente === 'basico')
+    return mostrarNota('Análisis básico: ', 'la foto parece de estado ' + (d.estado || '—').toLowerCase()
+      + '. No identifica el tipo de daño; elígelo tú.');
+  let t = (d.dano || 'tipo sin determinar') + (d.estado ? ', estado ' + d.estado.toLowerCase() : '')
+    + ' (confianza ' + d.confianza + '). ';
+  if (d.reparada) t += 'Parece reparada. ';
+  if (d.nota) t += d.nota + ' ';
+  if (d.dano && ['Vía cerrada', 'Vía bloqueada'].includes(d.dano))
+    t += 'Ojo: las rutas evitarán este punto; confirma que de verdad no se puede pasar. ';
+  t += llenados.length ? 'Se llenó: ' + llenados.join(', ') + '. ' : '';
+  mostrarNota('🤖 Sugerencia de la IA: ', t + 'Revisa y cambia lo que no esté bien.');
+}
+let seqIA = 0;
+$('foto').addEventListener('change', async e => {
+  const f = e.target.files[0], mio = ++seqIA;
+  if (!f) { $('ia-nota').hidden = true; return; }
+  mostrarNota('', 'Analizando la foto…');
+  const fd = new FormData(); fd.append('foto', f);
+  let d;
+  try { d = await (await fetch('/api/analizar-foto', {method: 'POST', body: fd})).json(); }
+  catch (err) {
+    if (mio === seqIA) mostrarNota('', 'No se pudo analizar la foto (¿pesa más de 8 MB?). Llena el reporte a mano.');
+    return;
+  }
+  if (mio !== seqIA) return;                           // eligió otra foto mientras tanto
+  if (!d.ok) return mostrarNota('', d.error || 'No se pudo analizar la foto. Llena el reporte a mano.');
+  sugerir(d);
+});
 
 $('form').addEventListener('submit', e => {
   if (!$('latitud').value) {

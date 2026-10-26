@@ -31,3 +31,15 @@ th,td{padding:.5rem;border-bottom:1px solid var(--borde);text-align:left;font-si
 .chips{display:flex;flex-wrap:wrap;gap:.5rem}
 .chip{margin:0;background:transparent;color:var(--texto);border:1px solid var(--borde);padding:.45rem .9rem;font-weight:500}
 .chip.activo{background:var(--acento);color:#06281c;border-color:var(--acento);font-weight:700}
+
+/* Aportes de la comunidad (página de detalle de un reporte) */
+.coment{border-bottom:1px solid var(--borde);padding:.8rem 0}
+.coment p{margin:.4rem 0}
+.coment form{margin-top:.4rem}
+.foto{display:block;max-width:100%;width:320px;border-radius:10px;margin-top:.5rem}
+.etq{display:inline-block;font-size:.8rem;padding:.05rem .6rem;border-radius:999px;background:rgba(52,211,153,.18);border:1px solid var(--acento)}
+.hp{position:absolute;left:-9999px}
+
+/* Nota de la IA sobre una foto */
+.ia-nota{margin:.6rem 0;padding:.55rem .8rem;border-left:3px solid var(--alerta);border-radius:0 8px 8px 0;background:rgba(251,191,36,.08);font-size:.9rem}
+.ia-nota b{color:var(--alerta)}

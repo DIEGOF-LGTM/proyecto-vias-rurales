@@ -1,0 +1,47 @@
+{% extends "base.html" %}{% block c %}
+<p><a href="{{ url_for('mapa') }}">← Volver al mapa</a></p>
+
+{# r: 0 id, 1 vereda, 2 estado, 3 tipo de daño, 4 descripción, 5 lat, 6 lon, 7 fecha, 8 foto, 9 nota IA, 10 medio #}
+<h2>{{ r[3] }} · {{ r[1] }}</h2>
+<p class="suave">Estado de la vía: {{ r[2] }} · Reportado el {{ r[7] }}{% if r[10] and r[10] != 'No indicado' %} · Iba: {{ r[10] }}{% endif %}</p>
+{% if r[4] %}<p>{{ r[4] }}</p>{% endif %}
+{% if r[8] and r[8] != 'sin_foto.jpg' %}
+<img class="foto" src="{{ url_for('static', filename='uploads/' ~ r[8]) }}" alt="Foto del reporte">
+{% endif %}
+{% if r[9] and r[9] != 'No analizado' %}<div class="ia-nota"><b>🤖 </b>{{ r[9] }}</div>{% endif %}
+
+<h3>Aportes de la comunidad ({{ comentarios|length }})</h3>
+{% for c in comentarios %}
+<div class="coment">
+  <b>{{ c[2] }}</b> <span class="etq">{{ c[3] }}</span> <span class="suave">· {{ c[6] }}</span>
+  {% if c[4] %}<p>{{ c[4] }}</p>{% endif %}
+  {% if c[5] %}<img class="foto" src="{{ url_for('static', filename='uploads/' ~ c[5]) }}" alt="Foto del aporte">{% endif %}
+  {% if c[7] and c[7] != 'No analizado' %}<div class="ia-nota"><b>🤖 </b>{{ c[7] }}</div>{% endif %}
+  {% if session.admin %}
+  <form method="post" action="{{ url_for('borrar_comentario_ruta', id_=c[0]) }}">
+    <button class="peligro" type="submit">Borrar aporte</button>
+  </form>
+  {% endif %}
+</div>
+{% else %}
+<p class="suave">Aún nadie ha aportado a este reporte. Cuenta cómo está la vía hoy o sube una foto.</p>
+{% endfor %}
+
+<h3>Agregar un aporte</h3>
+<form method="post" action="{{ url_for('comentar', id_=r[0]) }}" enctype="multipart/form-data">
+<label for="autor">Tu nombre (opcional)</label>
+<input id="autor" name="autor" maxlength="40" autocomplete="off">
+
+<label for="tipo">¿Qué quieres contar?</label>
+<select id="tipo" name="tipo">{% for t in tipos %}<option>{{ t }}</option>{% endfor %}</select>
+
+<label for="texto">Comentario</label>
+<textarea id="texto" name="texto" rows="3" maxlength="500" placeholder="Cómo está la vía hoy, qué viste…"></textarea>
+
+<label for="foto">Foto (opcional, máximo 8 MB)</label>
+<input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp">
+
+<input class="hp" name="web" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button type="submit">Publicar aporte</button>
+</form>
+{% endblock %}
