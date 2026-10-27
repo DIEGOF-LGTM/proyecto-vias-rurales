@@ -39,20 +39,10 @@
 <textarea id="cal-out" rows="8" readonly></textarea>
 </div>
 <div id="info"></div>
-<p class="suave leyenda">
-<span class="dot" style="background:#ef4444"></span>Hueco
-<span class="dot" style="background:#f97316"></span>Derrumbe
-<span class="dot" style="background:#3b82f6"></span>Inundación
-<span class="dot" style="background:#a855f7"></span>Drenaje
-<span class="dot" style="background:#dc2626"></span>Vía cerrada / bloqueada
-<span class="dot" style="background:#9ca3af"></span>Otro
-</p>
+<div id="leyenda"></div>
+<script src="{{ url_for('static', filename='marcadores.js', v=2) }}"></script>
 <script>
 const V = {{ veredas|tojson }};
-const COLOR = {'Hueco':'#ef4444','Derrumbe':'#f97316','Inundación':'#3b82f6','Drenaje':'#a855f7',
-               'Vía cerrada':'#dc2626','Vía bloqueada':'#7f1d1d'};
-const CIERRE = ['Vía cerrada', 'Vía bloqueada'];
-const RADIO_CIERRE = 80;  // metros; debe coincidir con RADIO_CIERRE_M de app.py
 // Nombre alterno para buscar la vereda en OpenStreetMap cuando aún no tiene coordenadas
 const ALIAS = {'Palo Gordo': 'Palogordo', 'Soaga': 'Soagá', 'El Cedro': 'El Cedro Volcán', 'Chirquín': 'Chirquin'};
 const CAL = new URLSearchParams(location.search).has('calibrar');
@@ -104,18 +94,10 @@ $('modos').addEventListener('click', e => {
   if (P.o.ll && P.d.ll) calcular();
 });
 
-// Reportes existentes (con nota de la IA y enlace a los aportes de la comunidad)
-fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
-  const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
-  const foto = r.foto && r.foto !== 'sin_foto.jpg'
-    ? `<br><img src="/static/uploads/${encodeURIComponent(r.foto)}" width="160" alt="Foto del daño">` : '';
-  const ia = r.ia && r.ia !== 'No analizado' ? `<br><small>🤖 ${esc(r.ia)}</small>` : '';
-  const medio = r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : '';
-  if (CIERRE.includes(r.dano))
-    L.circle([r.lat, r.lon], {radius: RADIO_CIERRE, color: '#dc2626', weight: 2, dashArray: '6 4', fillOpacity: .15, interactive: false}).addTo(map);
-  L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#9ca3af', fillOpacity: .8, bubblingMouseEvents: false})
-    .addTo(map).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}${medio}${ia}<br><small>${esc(r.fecha)}</small><br><a href="/reporte/${r.id}">💬 ${r.n} aporte(s) · Ver y comentar</a>${foto}`);
-})).catch(() => {});
+// Reportes existentes: icono y color por tipo, popup al pasar el mouse y filtros en la leyenda
+fetch('/api/reportes').then(r => r.json())
+  .then(lista => leyenda($('leyenda'), dibujarReportes(lista, map), map))
+  .catch(() => {});
 
 const coordTxt = ll => ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5);
 const fmt = m => m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min';

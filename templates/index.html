@@ -21,14 +21,7 @@
 </div>
 <div id="map"></div>
 <p class="suave" id="hint">Toca el mapa para marcar el punto exacto; puedes arrastrar el marcador. Los reportes que ya existen se ven en el mapa.</p>
-<p class="suave leyenda">
-<span class="dot" style="background:#ef4444"></span>Hueco
-<span class="dot" style="background:#f97316"></span>Derrumbe
-<span class="dot" style="background:#3b82f6"></span>Inundación
-<span class="dot" style="background:#a855f7"></span>Drenaje
-<span class="dot" style="background:#dc2626"></span>Vía cerrada / bloqueada
-<span class="dot" style="background:#9ca3af"></span>Otro
-</p>
+<div id="leyenda"></div>
 
 <form method="post" action="{{ url_for('reportar') }}" enctype="multipart/form-data" id="form">
 <input type="hidden" name="latitud" id="latitud">
@@ -63,12 +56,9 @@
 <button type="submit">Guardar reporte</button>
 </form>
 
+<script src="{{ url_for('static', filename='marcadores.js', v=2) }}"></script>
 <script>
 const V = {{ veredas|tojson }};
-const COLOR = {'Hueco':'#ef4444','Derrumbe':'#f97316','Inundación':'#3b82f6','Drenaje':'#a855f7',
-               'Vía cerrada':'#dc2626','Vía bloqueada':'#7f1d1d'};
-const CIERRE = ['Vía cerrada', 'Vía bloqueada'];
-const RADIO_CIERRE = 80;  // metros; debe coincidir con RADIO_CIERRE_M de app.py
 const ALIAS = {'Palo Gordo': 'Palogordo', 'Soaga': 'Soagá', 'El Cedro': 'El Cedro Volcán', 'Chirquín': 'Chirquin'};
 
 const map = baseMap('map', {{ centro[0] }}, {{ centro[1] }}, 14, false);
@@ -81,9 +71,8 @@ const calle = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   {maxNativeZoom: 18, maxZoom: 19, attribution: 'Tiles © Esri'});
 const capaVeredas = L.layerGroup().addTo(map);
-const capaReportes = L.layerGroup().addTo(map);
 L.control.layers({'Relieve': relieve, 'Calle': calle, 'Satélite': satelite},
-                 {'Veredas': capaVeredas, 'Reportes': capaReportes}).addTo(map);
+                 {'Veredas': capaVeredas}).addTo(map);
 
 // Pantalla completa: botón de arriba, botón del mapa y tecla Esc
 function pantallaCompleta(forzar){
@@ -104,18 +93,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && map.getContainer().classList.contains('full')) pantallaCompleta(false);
 });
 
-// Reportes existentes (los cierres también dibujan su radio)
-fetch('/api/reportes').then(r => r.json()).then(lista => lista.forEach(r => {
-  const k = Object.keys(COLOR).find(x => r.dano.startsWith(x));
-  const foto = r.foto && r.foto !== 'sin_foto.jpg'
-    ? `<br><img src="/static/uploads/${encodeURIComponent(r.foto)}" width="160" alt="Foto del daño">` : '';
-  const ia = r.ia && r.ia !== 'No analizado' ? `<br><small>🤖 ${esc(r.ia)}</small>` : '';
-  const medio = r.medio && r.medio !== 'No indicado' ? '<br>Iba: ' + esc(r.medio) : '';
-  if (CIERRE.includes(r.dano))
-    L.circle([r.lat, r.lon], {radius: RADIO_CIERRE, color: '#dc2626', weight: 2, dashArray: '6 4', fillOpacity: .15, interactive: false}).addTo(capaReportes);
-  L.circleMarker([r.lat, r.lon], {radius: 9, color: COLOR[k] || '#9ca3af', fillOpacity: .8, bubblingMouseEvents: false})
-    .addTo(capaReportes).bindPopup(`<b>${esc(r.dano)}</b><br>${esc(r.via)} · ${esc(r.estado)}<br>${esc(r.descripcion)}${medio}${ia}<br><small>${esc(r.fecha)}</small><br><a href="/reporte/${r.id}">💬 ${r.n} aporte(s) · Ver y comentar</a>${foto}`);
-})).catch(() => {});
+// Reportes existentes: icono y color por tipo, popup al pasar el mouse y filtros en la leyenda
+fetch('/api/reportes').then(r => r.json())
+  .then(lista => leyenda($('leyenda'), dibujarReportes(lista, map), map))
+  .catch(() => {});
 
 // Punto del nuevo reporte
 const iconoPunto = L.divIcon({className: '', iconSize: [30, 30], iconAnchor: [15, 30],

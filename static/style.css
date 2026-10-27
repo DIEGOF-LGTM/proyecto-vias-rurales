@@ -43,3 +43,36 @@ th,td{padding:.5rem;border-bottom:1px solid var(--borde);text-align:left;font-si
 /* Nota de la IA sobre una foto */
 .ia-nota{margin:.6rem 0;padding:.55rem .8rem;border-left:3px solid var(--alerta);border-radius:0 8px 8px 0;background:rgba(251,191,36,.08);font-size:.9rem}
 .ia-nota b{color:var(--alerta)}
+
+/* Marcadores del mapa: icono y color por tipo de daño (ver marcadores.js) */
+.mk{position:relative;width:40px;height:48px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+.mk .fig{position:absolute;left:0;top:0;width:40px;height:40px;display:grid;place-items:center;background:var(--c);border:3px solid #fff;border-radius:50%}
+.mk.cuadrado .fig{border-radius:11px}
+.mk .fig svg{width:23px;height:23px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mk .pt{position:absolute;left:14px;top:30px;width:12px;height:12px;background:var(--c);transform:rotate(45deg);border-right:3px solid #fff;border-bottom:3px solid #fff}
+.mk .est{position:absolute;right:-3px;top:-3px;width:15px;height:15px;border-radius:50%;background:var(--c);border:2.5px solid #fff;z-index:2}
+.leaflet-marker-icon:hover .mk,.leaflet-marker-icon:focus .mk{transform:scale(1.12);transform-origin:50% 100%}
+
+/* Leyenda con filtros por tipo */
+.chips-tipo{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.6rem}
+.chip-tipo{margin:0;display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .75rem .3rem .35rem;background:transparent;color:var(--texto);border:1px solid var(--borde);border-radius:999px;font-weight:500;font-size:.88rem}
+.chip-tipo small{color:var(--suave);font-weight:600}
+.chip-tipo.off{opacity:.45;text-decoration:line-through}
+.sw{display:inline-grid;place-items:center;width:24px;height:24px;flex:none;background:var(--c);border-radius:50%}
+.sw.cuadrado{border-radius:7px}
+.sw svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin:0 .25rem 0 .5rem;vertical-align:baseline}
+
+/* Popup del reporte (al pasar el mouse o tocar) */
+.pp-wrap .leaflet-popup-content-wrapper{border-radius:12px;padding:0;overflow:hidden}
+.pp-wrap .leaflet-popup-content{margin:0;width:auto!important}
+.pp{padding:.7rem .85rem;font-size:.9rem;line-height:1.35;color:#1f2937}
+.pp p{margin:.35rem 0}
+.pp-cab{display:flex;align-items:center;gap:.5rem;font-size:1rem}
+.pp-sub{color:#4b5563;margin-top:.2rem}
+.pp-ia{font-size:.82rem;color:#92400e;background:#fef3c7;border-radius:6px;padding:.3rem .5rem}
+.pp-foto{display:block;width:100%;max-height:150px;object-fit:cover;border-radius:8px;margin-top:.4rem}
+.pp-pie{display:flex;justify-content:space-between;align-items:center;gap:.6rem;margin-top:.5rem;flex-wrap:wrap}
+.pp-pie small{color:#6b7280}
+.pp a{color:#047857;font-weight:600;text-decoration:none}
+.pp a:hover{text-decoration:underline}
